@@ -6,10 +6,10 @@
 > Source files are individually maintained and authoritative; this file is
 > regenerated from them.
 >
-> Per `prompts/00_master.md` and `prompts/01_mcp_learning.md`, this
-> appendix must render with no `TBD` markers and must reference all
-> forward ticket IDs of the form `A-{boundary}-{nnn}` to be materialised
-> by Phase 5 in `docs/04_Attack_Taxonomy.md`.
+> This appendix must render with no `TBD` markers and must
+> reference all forward ticket IDs of the form
+> `A-{boundary}-{nnn}` to be materialised in
+> `docs/04_Attack_Taxonomy.md`.
 
 ---
 

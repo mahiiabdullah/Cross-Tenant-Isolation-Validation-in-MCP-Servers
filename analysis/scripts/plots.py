@@ -4,8 +4,7 @@ Each helper renders a matplotlib + seaborn figure, writes a
 PDF + PNG pair to ``analysis/figures/``, and returns the
 :class:`matplotlib.figure.Figure` for in-notebook display.
 
-The four helpers implement the figure specs in
-``prompts/10_analysis.md`` lines 63-68:
+The four helpers implement the documented figure specs:
 
 * ``rq1_leak_rate_by_boundary`` — grouped bar.
 * ``rq2_cache_heatmap`` — seaborn heatmap.

@@ -1,7 +1,6 @@
 """Programmatically assemble the Phase-10 Jupyter notebooks.
 
-Each notebook follows the convention from
-``prompts/10_analysis.md``:
+Each notebook follows the documented convention:
 
 1. Cell 1 = provenance (run_id, commit_sha, dataset version,
    seed).

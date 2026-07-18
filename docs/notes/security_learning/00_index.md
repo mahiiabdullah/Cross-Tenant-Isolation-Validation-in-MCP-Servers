@@ -1,13 +1,12 @@
 # 00 — Security Concepts Taxonomy Index
 
-> Consolidated index for **Phase 2** of the MCP Isolation Research program.
+> Consolidated index for the MCP Isolation Research program.
 > Aggregates the 14 concept files in `docs/notes/security_learning/` into a
 > single navigable reference. Concept files are individually maintained and
 > authoritative; this file is regenerated from them.
 >
-> Per `prompts/00_master.md` and `prompts/02_security_learning.md`, every
-> concept file uses the A–F rubric. Every concept's (F) names an MCP
-> boundary and references at least one Phase-1 ticket ID from
+> Every concept file uses the A–F rubric. Every concept's (F) names
+> an MCP boundary and references at least one Phase-1 ticket ID from
 > `docs/notes/mcp_learning/`.
 
 ## Macro-Category Map
@@ -19,9 +18,8 @@
 | **Architecture** (4) | Zero Trust (agentic) · Capability-based security · Capability tokens · Sandboxing | `08_…md`, `09_…md`, `10_…md`, `11_…md` |
 | **Logic** (3) | Context poisoning · Tool confusion · Confused deputy | `12_…md`, `13_…md`, `14_…md` |
 
-> Note: `prompts/02_security_learning.md` states 13 concepts in its
-> Done-When gate but lists 14 in its coverage list. This index covers
-> all 14 explicit items in the coverage list.
+> Note: the security_learning coverage list contains 14 concept files.
+> This index covers all 14 of them.
 
 ## Concept → MCP Boundary → Primary Source Index
 

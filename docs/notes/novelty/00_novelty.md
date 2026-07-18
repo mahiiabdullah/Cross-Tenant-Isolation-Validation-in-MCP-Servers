@@ -12,7 +12,7 @@ Filled during Phase 4. Phase-3 evidence has been **re-verified** on
 2026-07-18 via WebFetch on each cited arXiv abstract page; see the
 "Verification log" section at the end of this document.
 
-The four-phase prompt gate (`prompts/04_novelty.md`) requires:
+The four-phase novelty gate requires:
 
 1. Three yes/no answers with one citation each (or "no prior work
    found").
@@ -127,7 +127,7 @@ side channels rather than JSON-RPC payload leakage.
 
 ### Justification (against the prompt's four targets)
 
-| Target (per `prompts/04_novelty.md`) | Status | Evidence |
+| Target | Status | Evidence |
 | --- | --- | --- |
 | Empirical measurement framework for MCP isolation | 🔜 Planned (Phase 6) | `framework/` directory not yet created; design documented in this Phase-4 plan. |
 | Taxonomy covering all eight boundaries | ✅ Complete (Phase 1) | `docs/02_Threat_Model.md` boundary table; `docs/notes/mcp_learning/00_appendix.md` cross-component ticket index. |

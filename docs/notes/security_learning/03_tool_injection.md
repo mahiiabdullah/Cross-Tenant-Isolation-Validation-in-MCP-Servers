@@ -1,6 +1,6 @@
 # 03 — Tool Injection (Malicious / Shadow Tools)
 
-> Phase 2, Concept 3 of 14. Per `prompts/02_security_learning.md` A–F
+> Concept 3 of 14.
 > rubric. Concept coverage: **Injection** macro-category.
 
 ## (A) Formal Definition

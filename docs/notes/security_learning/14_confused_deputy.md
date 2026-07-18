@@ -1,6 +1,6 @@
 # 14 — Confused Deputy Problem
 
-> Phase 2, Concept 14 of 14. Per `prompts/02_security_learning.md` A–F
+> Concept 14 of 14.
 > rubric. Concept coverage: **Logic** macro-category.
 
 ## (A) Formal Definition

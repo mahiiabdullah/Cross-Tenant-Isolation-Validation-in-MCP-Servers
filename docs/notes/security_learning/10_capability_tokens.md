@@ -1,6 +1,6 @@
 # 10 — Capability Tokens
 
-> Phase 2, Concept 10 of 14. Per `prompts/02_security_learning.md` A–F
+> Concept 10 of 14.
 > rubric. Concept coverage: **Architecture** macro-category.
 
 ## (A) Formal Definition

@@ -1,6 +1,6 @@
 # 08 — Zero Trust in Agentic Systems
 
-> Phase 2, Concept 8 of 14. Per `prompts/02_security_learning.md` A–F
+> Concept 8 of 14.
 > rubric. Concept coverage: **Architecture** macro-category.
 
 ## (A) Formal Definition

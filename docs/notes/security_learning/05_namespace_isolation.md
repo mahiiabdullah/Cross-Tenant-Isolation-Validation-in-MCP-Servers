@@ -1,6 +1,6 @@
 # 05 — Namespace Isolation
 
-> Phase 2, Concept 5 of 14. Per `prompts/02_security_learning.md` A–F
+> Concept 5 of 14.
 > rubric. Concept coverage: **Isolation** macro-category.
 
 ## (A) Formal Definition

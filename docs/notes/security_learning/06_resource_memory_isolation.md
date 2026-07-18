@@ -1,6 +1,6 @@
 # 06 — Resource & Memory Isolation
 
-> Phase 2, Concept 6 of 14. Per `prompts/02_security_learning.md` A–F
+> Concept 6 of 14.
 > rubric. Concept coverage: **Isolation** macro-category.
 
 ## (A) Formal Definition

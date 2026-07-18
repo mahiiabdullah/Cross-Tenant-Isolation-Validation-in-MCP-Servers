@@ -1,6 +1,6 @@
 # 11 — Sandboxing (WASM, gVisor, Firecracker, OS Process Isolation)
 
-> Phase 2, Concept 11 of 14. Per `prompts/02_security_learning.md` A–F
+> Concept 11 of 14.
 > rubric. Concept coverage: **Architecture** macro-category.
 
 ## (A) Formal Definition

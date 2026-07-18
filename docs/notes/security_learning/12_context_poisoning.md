@@ -1,6 +1,6 @@
 # 12 — Context Poisoning
 
-> Phase 2, Concept 12 of 14. Per `prompts/02_security_learning.md` A–F
+> Concept 12 of 14.
 > rubric. Concept coverage: **Logic** macro-category.
 
 ## (A) Formal Definition

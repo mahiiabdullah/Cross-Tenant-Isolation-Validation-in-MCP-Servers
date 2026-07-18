@@ -66,20 +66,20 @@ references these files via relative paths
 
 Every bibliography entry has a per-paper summary at
 `literature/summaries/<key>.md`. The BibLaTeX style is
-`alphabetic` per `prompts/11_paper.md` rule #1.
+`alphabetic`.
 
 ## Style conformance
 
-The manuscript follows the rules in `prompts/11_paper.md`:
+The manuscript follows these conventions:
 
-- BibLaTeX with `style=alphabetic` (rule 1).
-- `\includegraphics{figures/<file>.pdf}` only (rule 2).
-- `booktabs` tables with no vertical rules (rule 3).
+- BibLaTeX with `style=alphabetic`.
+- `\includegraphics{figures/<file>.pdf}` only.
+- `booktabs` tables with no vertical rules.
 - All numbers traced back to
-  `analysis/tables/*.csv` (rule 4).
+  `analysis/tables/*.csv`.
 - Acronyms defined on first use in
-  `sections/02_background.tex` (rule 5).
-- Target 12 pages + unlimited references (rule 6; current build
+  `sections/02_background.tex`.
+- Target 12 pages + unlimited references (current build
   is approximately 11 pages).
 
 ## Continuous integration

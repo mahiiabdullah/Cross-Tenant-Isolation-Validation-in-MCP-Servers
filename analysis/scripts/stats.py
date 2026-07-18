@@ -1,6 +1,6 @@
 """Statistical helpers used by the Phase-10 analysis pipeline.
 
-Contract (per ``prompts/10_analysis.md``):
+Exposed contract:
 
 * :func:`welch_t`      — Welch's t-test → (t, p).
 * :func:`cliffs_delta` — Cliff's δ non-parametric effect size.

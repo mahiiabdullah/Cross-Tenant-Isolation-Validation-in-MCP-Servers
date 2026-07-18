@@ -1,0 +1,8 @@
+attack_id,mean_latency_ms,p95_latency_ms,leak_rate_secure,below_upper_bound,above_lower_bound,n_events
+A-TOL-001,0.0,0.0,0.5,False,True,1395
+A-TOL-D,0.0,0.0,0.5,False,True,1395
+A-TOL-E,0.0,0.0,0.5,False,True,1395
+A-TOL-I,0.0,0.0,0.5,False,True,1395
+A-TOL-R,0.0,0.0,0.5,False,True,1395
+A-TOL-S,0.0,0.0,0.5,False,True,1395
+A-TOL-T,0.0,0.0,0.5,False,True,1395

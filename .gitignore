@@ -1,0 +1,88 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+.puku-cli/
+
+# Jupyter
+.ipynb_checkpoints/
+# Notebooks are part of the analysis package — kept under analysis/notebooks/.
+# Do NOT ignore *.ipynb globally; only the auto-saved checkpoints.
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Logs and outputs
+experiments/logs/*.log
+experiments/outputs/*
+!experiments/outputs/.gitkeep
+
+# All analysis artifacts are regeneratable by the run harness.
+analysis/runs/
+analysis/figures/
+analysis/csv/
+analysis/scripts/__pycache__/
+
+# Paper figures are produced by build_paper_assets.py; do not commit binaries.
+paper/figures/
+!paper/figures/.gitkeep
+
+# Generated data inside analysis runs (CSV/NDJSON/JSONL/SQLite/XLSX)
+analysis/**/*.ndjson
+analysis/**/*.jsonl
+analysis/**/*.db
+analysis/**/*.xlsx
+analysis/**/*.pdf
+paper/**/*.pdf
+
+# Datasets (raw generated content)
+datasets/tenant_a/*.jsonl
+datasets/tenant_b/*.jsonl
+datasets/tenant_c/*.jsonl
+datasets/generated/*.jsonl
+!datasets/**/.gitkeep
+
+# Secrets / local config
+.env
+.env.*
+!.env.example
+secrets.yaml
+
+# OS files
+Thumbs.db
+
+# LaTeX build artifacts
+paper/latex/build/
+paper/latex/*.aux
+paper/latex/*.bbl
+paper/latex/*.blg
+paper/latex/*.log
+paper/latex/*.out
+paper/latex/*.synctex.gz
+paper/latex/*.toc

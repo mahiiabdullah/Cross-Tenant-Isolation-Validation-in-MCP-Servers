@@ -1,0 +1,99 @@
+// Security Concepts Taxonomy (Phase 2)
+// Renders with: dot -Tsvg docs/diagrams/security_taxonomy.dot -o security_taxonomy.svg
+// Source-of-truth: docs/notes/security_learning/00_index.md
+//
+// Four macro-categories: Injection, Isolation, Architecture, Logic.
+// Each cluster contains the relevant concept nodes; edges show the
+// conceptual relationships from the index.
+
+digraph security_taxonomy {
+    rankdir=LR;
+    fontname="Helvetica";
+    node [fontname="Helvetica", shape=box, style="rounded,filled"];
+    edge [fontname="Helvetica", fontsize=10];
+
+    // ---- Macro category clusters ----
+
+    subgraph cluster_injection {
+        label = "Injection (3)";
+        style=filled;
+        color="#fde0c5";
+        fontname="Helvetica-Bold";
+
+        c01_direct_pi [label="01 Direct Prompt Injection\n(boundary: tool, auth)", fillcolor="#fef0d9"];
+        c02_indirect_pi [label="02 Indirect Prompt Injection\n(boundary: tool, resource, memory)", fillcolor="#fef0d9"];
+        c03_tool_inj [label="03 Tool Injection\n(boundary: namespace, auth)", fillcolor="#fef0d9"];
+    }
+
+    subgraph cluster_isolation {
+        label = "Isolation (4)";
+        style=filled;
+        color="#d9f0d3";
+        fontname="Helvetica-Bold";
+
+        c04_multi_tenant [label="04 Multi-Tenant Isolation\n(boundary: all 8)", fillcolor="#e7f5e1"];
+        c05_namespace [label="05 Namespace Isolation\n(boundary: namespace)", fillcolor="#e7f5e1"];
+        c06_res_mem [label="06 Resource/Memory Isolation\n(boundary: resource, memory, cache)", fillcolor="#e7f5e1"];
+        c07_session [label="07 Session Isolation\n(boundary: session, auth)", fillcolor="#e7f5e1"];
+    }
+
+    subgraph cluster_architecture {
+        label = "Architecture (4)";
+        style=filled;
+        color="#c6dbef";
+        fontname="Helvetica-Bold";
+
+        c08_zero_trust [label="08 Zero Trust (Agentic)\n(boundary: all 8)", fillcolor="#deebf7"];
+        c09_cap_based [label="09 Capability-Based Security\n(boundary: auth, namespace)", fillcolor="#deebf7"];
+        c10_cap_tokens [label="10 Capability Tokens\n(boundary: auth)", fillcolor="#deebf7"];
+        c11_sandboxing [label="11 Sandboxing (WASM/gVisor/Firecracker/OS)\n(boundary: transport, session)", fillcolor="#deebf7"];
+    }
+
+    subgraph cluster_logic {
+        label = "Logic (3)";
+        style=filled;
+        color="#e7e1ef";
+        fontname="Helvetica-Bold";
+
+        c12_ctx_poison [label="12 Context Poisoning\n(boundary: memory, cache, tool)", fillcolor="#f2f0f7"];
+        c13_tool_conf [label="13 Tool Confusion\n(boundary: namespace, tool)", fillcolor="#f2f0f7"];
+        c14_confused_deputy [label="14 Confused Deputy\n(boundary: auth, tool, resource)", fillcolor="#f2f0f7"];
+    }
+
+    // ---- Cross-cluster relationships ----
+    //
+    // Edges encode the dependency graph from 00_index.md:
+    //   Injection ─► Isolation  (resource/memory isolation is the
+    //                            containment strategy for indirect
+    //                            injection)
+    //   Injection ─► Logic      (tool confusion / confused deputy are
+    //                            the routing-level realisation of
+    //                            injection)
+    //   Architecture ─► Isolation (capabilities enforce isolation;
+    //                              sandboxing is the substrate)
+    //   Logic ─► Architecture    (defenses rely on capability
+    //                              attenuation and tenant-prefixed
+    //                              cache keys)
+
+    c02_indirect_pi -> c06_res_mem [label="containment via", style=dashed, color="#2ca25f"];
+    c03_tool_inj -> c05_namespace  [label="targets", style=dashed, color="#2ca25f"];
+
+    c03_tool_inj    -> c13_tool_conf      [label="routing-level realisation", color="#7570b3"];
+    c01_direct_pi   -> c14_confused_deputy [label="deputy misuse", color="#7570b3"];
+    c02_indirect_pi -> c14_confused_deputy [label="deputy misuse", color="#7570b3"];
+
+    c09_cap_based   -> c04_multi_tenant [label="mechanism for", color="#3182bd"];
+    c09_cap_based   -> c07_session      [label="mechanism for", color="#3182bd"];
+    c10_cap_tokens  -> c09_cap_based    [label="concretises", color="#3182bd"];
+    c11_sandboxing  -> c04_multi_tenant [label="substrate for", color="#3182bd"];
+
+    c14_confused_deputy -> c09_cap_based [label="defenses rely on", color="#636363"];
+    c12_ctx_poison      -> c09_cap_based [label="defenses rely on", style=dotted, color="#636363"];
+    c13_tool_conf       -> c05_namespace [label="defenses rely on", style=dotted, color="#636363"];
+
+    // Layout hints so macro-clusters read left-to-right.
+    { rank=same; c01_direct_pi; c02_indirect_pi; c03_tool_inj; }
+    { rank=same; c04_multi_tenant; c05_namespace; c06_res_mem; c07_session; }
+    { rank=same; c08_zero_trust; c09_cap_based; c10_cap_tokens; c11_sandboxing; }
+    { rank=same; c12_ctx_poison; c13_tool_conf; c14_confused_deputy; }
+}

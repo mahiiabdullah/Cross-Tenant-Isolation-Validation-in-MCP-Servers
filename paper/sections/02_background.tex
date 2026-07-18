@@ -1,0 +1,182 @@
+% 02_background.tex
+% Acronyms defined on first use, per prompts/11_paper.md style rule #5.
+
+\section{Background}\label{sec:background}
+
+This section introduces the Model Context Protocol (\mcp{}) and
+recapitulates the isolation vocabulary we use throughout the paper.
+
+\subsection{The Model Context Protocol}
+
+\mcp{} (\mcp{}) is a JSON-RPC-2.0-based protocol that mediates
+communication between an LLM agent (the \emph{host}) and one or
+more external \emph{servers} that expose tools, resources, and
+prompt templates~\cite{mcp_spec}. The protocol defines five
+primitive message types:
+\texttt{initialize}, \texttt{tools/list},
+\texttt{tools/call}, \texttt{resources/read}, and
+\texttt{prompts/get}, plus a notifications channel for
+server-pushed events. Transports include stdio (for
+co-located processes), HTTP+SSE, and streamable HTTP. An MCP
+\emph{host} (e.g. an agent runtime) may multiplex many
+connections to different servers; an MCP \emph{server} may serve
+many \emph{tenants} (users, agents, or organisations).
+
+\paragraph{Acronyms.}
+\textbf{API} Application Programming Interface; \textbf{CLI}
+Command-Line Interface; \textbf{CVSS} Common Vulnerability
+Scoring System; \textbf{CWE} Common Weakness Enumeration;
+\textbf{DoS} Denial of Service; \textbf{JSON-RPC} JSON Remote
+Procedure Call; \textbf{JWT} JSON Web Token; \textbf{LLM} Large
+Language Model; \textbf{LSP} Language Server Protocol;
+\textbf{mTLS} Mutual Transport Layer Security; \textbf{MCP} Model
+Context Protocol; \textbf{NDSS} Network and Distributed System
+Security; \textbf{PII} Personally Identifiable Information;
+\textbf{RPC} Remote Procedure Call; \textbf{SSE} Server-Sent
+Events; \textbf{STRIDE} Spoofing, Tampering, Repudiation,
+Information Disclosure, Denial of Service, Elevation of
+Privilege~\cite{stride_orig}; \textbf{SAN} Subject Alternative
+Name; \textbf{SSRF} Server-Side Request Forgery;
+\textbf{TOCTOU} Time-of-Check Time-of-Use.
+
+\subsection{Isolation in multi-tenant agent infrastructure}
+
+We use \emph{isolation} in the security-engineering sense: a
+tenant's data, computation, and identity are confined to that
+tenant, with no observable influence on---or from---other
+tenants~\cite{nist_sp_800_207}. The MCP specification does not
+mandate any isolation mechanism; it simply defines the wire
+format. Reference implementations (Python, TypeScript, Rust)
+provide single-tenant defaults and leave multi-tenancy as an
+implementation concern.
+
+\paragraph{Why MCP's eight boundaries matter.}
+We catalogue eight implicit boundaries that any multi-tenant
+MCP server must enforce. Each boundary corresponds to a
+trust-decision point in the protocol:
+
+\begin{itemize}
+  \item \textbf{Transport}---the byte-level channel between host
+        and server (stdio, HTTP+SSE, streamable HTTP).
+  \item \textbf{Session}---per-connection state on the server
+        (resolved principal, caches, cancellation tokens, SSE
+        queues).
+  \item \textbf{Namespace}---tool, resource, and prompt naming
+        and discovery.
+  \item \textbf{Tool}---tool invocation and result delivery.
+  \item \textbf{Resource}---file/blob/URI access via MCP
+        resources.
+  \item \textbf{Memory}---server-side conversation memory and
+        scratchpads.
+  \item \textbf{Cache}---cached tool outputs and embeddings.
+  \item \textbf{Auth}---token and scope verification.
+\end{itemize}
+
+A boundary is \emph{enforced} when every observable
+interactions across the boundary carries an unambiguous
+tenant identity that the server can verify before acting on the
+request. A boundary is \emph{broken} when an actor without a
+legitimate tenant identity can either read another tenant's
+state or cause another tenant to act on their behalf. We
+operationalise these definitions in \S\ref{sec:threat_model}.
+
+\subsection{Threat-model vocabulary}
+
+We adopt STRIDE as our per-boundary threat taxonomy because it
+is the de-facto vocabulary in protocol-level threat
+modelling~\cite{stride_orig}. Each STRIDE letter maps cleanly
+onto an MCP failure mode:
+
+\begin{itemize}
+  \item \textbf{Spoofing (S)}: impersonate a tenant or forge a
+        session/transport identity.
+  \item \textbf{Tampering (T)}: modify another tenant's state
+        via a shared write path.
+  \item \textbf{Repudiation (R)}: hide or falsify the actor of
+        an attack via missing audit.
+  \item \textbf{Information Disclosure (I)}: read another
+        tenant's data.
+  \item \textbf{Denial of Service (D)}: starve or degrade
+        another tenant's service.
+  \item \textbf{Elevation of Privilege (E)}: bypass authorisation
+        via shadow or renamed capability.
+\end{itemize}
+
+The cross-product of eight boundaries and six STRIDE letters
+yields 48 rows, all of which we enumerate in
+\S\ref{sec:threat_model}.
+
+\subsection{Defense vocabulary}
+
+We evaluate four protocol-layer defenses (rather than OS-layer
+sandboxing) because the goal is to fix MCP, not the underlying
+operating system~\cite{dipta_2024_sandbox}. The four defenses
+are: \emph{per-tenant tool registries} (namespace), \emph{tenant-
+prefixed cache keys} (cache), \emph{resource-path
+canonicalisation} (resource), and \emph{audience-bound JWTs}
+(auth). Each defense is a self-contained middleware that can be
+enabled or disabled per experiment, and we measure them
+individually and in composition in \S\ref{sec:evaluation}.
+
+\subsection{Why the eight boundaries matter together}
+
+A common objection to boundary-by-boundary analysis is that
+real-world attacks cross boundaries: a single prompt-injection
+attack can traverse the resource boundary (the injected content
+is read via \texttt{resources/read}), the auth boundary (the
+injected instruction seeks elevation), and the tool boundary
+(the model is tricked into calling a tool). Our defense
+blueprint (\S\ref{sec:defenses}) addresses this objection by
+arguing that the composition of one defense per boundary is
+sufficient: each attack's exploitation path crosses
+\emph{at least one} boundary whose defense is engaged. Cache
+attacks cross the namespace boundary (tool routing) and the
+cache boundary; the registry defence catches the former and
+the cache defence catches the latter. Prompt-injection attacks
+cross the resource boundary and the auth boundary; the
+canonicalisation and JWT defences catch them in series.
+
+A second common objection is that boundary catalogues are
+\emph{not falsifiable} --- that any failure can be re-described
+in terms of any boundary. We address this by insisting that
+each row in our STRIDE table has a \emph{mechanism}: a
+concrete code path or protocol message whose presence or
+absence determines whether the boundary is enforced. The
+per-tenant tool registry, for example, is a single middleware
+line; if it is absent, the row \texttt{A-NSP-001} (tool-name
+squatting) is exploitable; if it is present, the row is not.
+The mechanism makes the catalogue falsifiable and the defenses
+testable.
+
+\subsection{Capability-based security as the underlying model}
+
+The defense blueprint in \S\ref{sec:blueprint} is consistent with
+\emph{capability-based security}: every action requires an
+unforgeable capability that names both the principal and the
+target. Capsicum (FreeBSD 9.0, 2012) is the historical
+precedent; the audience-bound JWT in our auth defense is the
+modern analogue. The key insight is that \emph{ambient authority}
+--- permissions inherited from the process identity rather than
+explicitly granted per action --- is the root cause of most
+multi-tenant security failures. MCP's defaults inherit ambient
+authority from the stdio worker (transport boundary), the
+in-memory cache (cache boundary), and the shared tool registry
+(namespace boundary); our defenses replace each ambient
+authority with an explicit capability.
+
+\subsection{Why protocol-layer defenses, not OS-layer sandboxes}
+
+Dipta et al.~(2024) demonstrated that side channels survive
+logical sandboxing~\cite{dipta_2024_sandbox}: their dynamic
+frequency-based fingerprinting attack defeats gVisor,
+Firecracker, SGX, and SEV. This is a \emph{positive} result for
+their attack and a \emph{negative} result for OS-layer
+sandboxing as a sole defense. Our position is that MCP-layer
+defenses and OS-layer sandboxes are \emph{complementary}: the
+MCP-layer defenses close the protocol-level leakage paths (the
+RQ-4 result), and the OS-layer sandbox contains the residual
+silicon-level leakage (Dipta et al.'s threat model). A
+production MCP deployment should run the secure reference
+server inside a Firecracker microVM and engage all four
+protocol-layer defenses; the combination is what the MCP
+specification should recommend.

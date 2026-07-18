@@ -1,0 +1,92 @@
+# GitHub Actions workflow — build the LaTeX manuscript on every push.
+#
+# This workflow is the canonical CI recipe referenced from
+# `paper/README.md`. It also enforces:
+#   * Balanced braces in every `paper/sections/*.tex` file.
+#   * Every `\cite{}` key resolves in `paper/references.bib`.
+
+name: build-paper
+
+on:
+  push:
+    paths:
+      - 'paper/**'
+      - 'analysis/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Brace-balance check
+        run: |
+          python - <<'PY'
+          import re, pathlib
+          root = pathlib.Path('paper')
+          ok = True
+          for f in sorted(root.glob('sections/*.tex')):
+              c = f.read_text(encoding='utf-8')
+              o = len(re.findall(r'\{', c))
+              cl = len(re.findall(r'\}', c))
+              status = 'OK' if o == cl else 'MISMATCH'
+              if o != cl:
+                  ok = False
+              print(f'{f.name}: open={o} close={cl} {status}')
+          assert ok, 'brace mismatch'
+          PY
+
+      - name: Citation-key check
+        run: |
+          python - <<'PY'
+          import re, pathlib
+          bib = pathlib.Path('paper/references.bib').read_text(encoding='utf-8')
+          keys = set(re.findall(r'^@\w+\{([^,]+),', bib, re.MULTILINE))
+          for f in pathlib.Path('paper/sections').glob('*.tex'):
+              for cite in re.findall(r'\\cite\{([^}]+)\}', f.read_text(encoding='utf-8')):
+                  for k in cite.split(','):
+                      k = k.strip()
+                      assert k in keys, f'{f.name}: missing key {k!r}'
+          print(f'all citations resolve ({len(keys)} keys in bib)')
+          PY
+
+  build:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install TeX Live
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              texlive-latex-base texlive-latex-extra \
+              texlive-fonts-recommended texlive-fonts-extra \
+              latexmk biber
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Stage paper assets
+        run: python paper/build_paper_assets.py
+
+      - name: Build PDF
+        run: latexmk -pdf paper/main.tex
+
+      - name: Upload PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-pdf
+          path: paper/main.pdf

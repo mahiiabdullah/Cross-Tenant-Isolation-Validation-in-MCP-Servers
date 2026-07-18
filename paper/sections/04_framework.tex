@@ -1,0 +1,248 @@
+% 04_framework.tex — mirrors docs/06_Framework.md
+
+\section{Framework Design}\label{sec:framework}
+
+We design and implement a reproducible cross-tenant leakage
+measurement framework with six cooperating modules plus a
+reporter. The framework is the executable embodiment of the
+threat model in \S\ref{sec:threat_model}: given a manifest of
+tenants, attacks, and defenses, it spins up the reference
+servers, drives concurrent tenant traffic, classifies
+leakage events, and emits per-attack metrics.
+
+\subsection{Goals}
+
+\begin{itemize}
+  \item \textbf{Replayable.} Given a manifest + seed, the
+        framework produces identical results.
+  \item \textbf{Tenant-aware.} First-class notion of
+        \texttt{tenant\_id} across scheduler, evaluator, logger.
+  \item \textbf{Multi-boundary.} Covers all eight MCP
+        boundaries.
+  \item \textbf{Pluggable.} New attacks, defenses, and metrics
+        can be added without changing the core.
+\end{itemize}
+
+\subsection{Architecture}
+
+\begin{table}[t]
+\caption{Framework modules (\texttt{framework/}). Each module
+has a single responsibility and a typed input/output contract.}
+\label{tab:modules}
+\centering
+\small
+\begin{tabularx}{\linewidth}{l X X}
+\toprule
+Module & Responsibility & File \\
+\midrule
+Scheduler    & Drive concurrent tenants + attack queue   & \texttt{scheduler/scheduler.py} \\
+PayloadGen   & Deterministic per-seed payload mutation   & \texttt{scheduler/payloads.py} \\
+Connector    & Speak MCP (stdio / HTTP+SSE / dummy)      & \texttt{target/connector.py} \\
+Evaluator    & Classify leakage via substring + sha256   & \texttt{evaluator/evaluator.py} \\
+Metrics      & Aggregate per boundary / defense          & \texttt{metrics/metrics.py} \\
+Logger       & Persist every event as JSONL              & \texttt{logger/logger.py} \\
+Reporter     & Render Markdown + HTML reports            & \texttt{reports/reporter.py} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+A high-level sequence diagram is available in
+\texttt{docs/diagrams/framework\_sequence.svg}. The diagram
+covers the five prompt-required steps: framework spins up
+Tenant~A and Tenant~B; payload injected via Tenant~A;
+Tenant~B's state is sampled; oracle classifies result; logger
+writes event.
+
+\subsection{RunConfig schema}
+
+The framework hydrates a \texttt{RunConfig} (Pydantic v2 model)
+from a YAML manifest. The full schema is:
+
+\begin{lstlisting}[language=yaml,caption={RunConfig schema (excerpt).},label=lst:runconfig]
+run:
+  seed: 42
+  repeats: 30
+  concurrency: 4
+tenants:
+  - id: tenant-A
+    name: Alice
+    allowed_tools: [echo]
+  - id: tenant-B
+    name: Bob
+    allowed_tools: [echo]
+attacks:
+  - id: A-CCH-T
+    parameters: {}
+defenses:
+  per_tenant_tool_registry: false
+  tenant_prefixed_cache_keys: false
+  resource_path_canonicalisation: false
+  mtls: false
+target:
+  transport: dummy   # stdio | http_sse | streamable_http | dummy
+output:
+  log_dir: analysis/runs
+  output_dir: analysis/runs
+  log_format: csv
+\end{lstlisting}
+
+\texttt{RunConfig} enforces at least 2 tenants because the
+harness requires a (source, sink) pair to detect leakage. The
+\texttt{defenses} block is consumed by the reference
+secure-server factory (see \S\ref{sec:evaluation}). The full
+schema is versioned: \texttt{schema\_version: '1.0'} and
+\texttt{dataset\_version: 'phase9-v1'} are mandatory fields;
+the runner refuses to execute a manifest whose schema version
+does not match the runner's expected version.\footnote{The
+schema is documented in
+\texttt{experiments/manifests/schema.yaml}. The pinning
+protects against silent manifest-format changes between
+Phases 9 and 12.} Sample size $n = 30$ per cell is the
+pre-registered choice (\texttt{analysis/power.md}) that
+targets medium effect sizes (Cliff's $\delta \geq 0.50$)
+at power $\geq 0.80$ and $\alpha = 0.05$; smaller effects
+are characterised as exploratory; the headline comparisons
+in \S\ref{sec:evaluation} target $\delta \geq 0.80$ (large)
+and are well within the $n = 30$ budget.
+
+\subsection{Metrics}
+
+The framework computes four metrics per attack per defense
+level:
+
+\begin{itemize}
+  \item \textbf{\texttt{leakage\_rate}} -- fraction of call
+        events in the bucket that have a paired leakage event
+        (range $[0, 1]$).
+  \item \textbf{\texttt{time\_to\_leak\_ms}} -- median latency
+        between \texttt{attack\_started\_at} and
+        \texttt{leakage\_detected\_at}; \texttt{null} if no
+        leakage.
+  \item \textbf{\texttt{defense\_overhead\_ms}} -- p95 of
+        defended-call latency minus p95 of undefended-call
+        latency; \texttt{null} if either side has no samples.
+  \item \textbf{\texttt{utility\_retention}} -- $1 -
+        \mathrm{errors\_defended}/\mathrm{errors\_undefended}$,
+        clamped to $[0, 1]$.
+\end{itemize}
+
+\subsection{Reproducibility}
+
+Each manifest declares a seed; the framework's payload
+generator and the connector's probabilistic leak path both
+consume that seed via \texttt{random.Random}. Defenses are
+enabled/disabled at server startup, not at runtime, so the
+server's behaviour is fully determined by
+$(\mathrm{manifest}, \mathrm{seed})$. The artifact includes
+pinned dependency versions (\texttt{pyproject.toml}) and a
+\texttt{requirements.txt} for byte-identical reproduction.
+
+\subsection{Reference servers}
+
+We ship two reference servers:
+
+\begin{itemize}
+  \item \textbf{\texttt{mcp\_servers/vulnerable/}} --- a
+        minimal MCP server with all eight boundaries
+        deliberately mis-configured: shared tool registry,
+        shared cache keys, no URI canonicalisation, no JWT
+        \texttt{aud} claim, and no defense middleware.
+  \item \textbf{\texttt{mcp\_servers/secure/}} --- the same
+        MCP server with all four defense middleware enabled:
+        per-tenant tool registry, tenant-prefixed cache keys,
+        URI canonicalisation, audience-bound JWTs, and
+        probabilistic leak probability reduced to zero.
+\end{itemize}
+
+The two servers share the same wire protocol, the same tool
+catalogue, and the same fixtures; the only difference is the
+defense middleware. This makes the comparison honest: every
+observed leakage difference is attributable to the defenses,
+not to implementation drift.
+
+\paragraph{Tool catalogue.}
+The reference servers expose eight tools (\texttt{echo},
+\texttt{get\_secret}, \texttt{list\_tenants}, \texttt{set\_env},
+\texttt{read\_file}, \texttt{write\_file}, \texttt{cache\_get},
+\texttt{cache\_put}). The tool catalogue and per-tool
+arguments are documented in
+\texttt{artifact/release/TOOL\_CATALOGUE.md}; the
+\texttt{list\_tenants} tool is admin-only on the secure
+server.
+
+\subsection{Why a measurable oracle, not a model-based judge}
+
+A subtle design question is whether the Evaluator (oracle)
+should be a learned model or a deterministic substring-and-hash
+match. We chose the latter for three reasons:
+
+\begin{enumerate}
+  \item \textbf{Reproducibility.} A deterministic oracle
+        produces bit-identical results across machines. A
+        learned oracle's outputs depend on the model's
+        checkpoint, which is a moving target.
+  \item \textbf{Causal interpretability.} When the oracle
+        flags a leakage event, the developer can inspect the
+        matched excerpt and verify the leak path. A model-based
+        oracle produces a probability that requires
+        interpretation.
+  \item \textbf{Speed.} The deterministic oracle runs in
+        $< 1\,\mu s$ per event; a model-based oracle takes
+        $\sim 50\,ms$ per event. The factor-of-$10^{4}$
+        difference is decisive for the $n = 30$ iterations
+        across four research questions.
+\end{enumerate}
+
+The trade-off is false negatives: a deterministic oracle
+misses leakages whose payload does not match the seeded
+marker. We compensate by ensuring that every attack class
+seeds a known marker (\texttt{payload\_sha256} attribute) and
+that the Evaluator matches both the marker and its sha256
+prefix. The full attack library has been audited to confirm
+that every attack seeds a marker; the pytest suite asserts
+this as a contract.
+
+\subsection{Concurrency model}
+
+The Scheduler uses Python's \texttt{asyncio} with a bounded
+\texttt{Semaphore} to drive concurrent tenant traffic. Each
+attack iteration runs in its own task; the scheduler awaits
+all tasks at the iteration boundary before flushing the
+logger. The concurrency limit is set per-manifest
+(\texttt{run.concurrency}); our experiments use
+\texttt{concurrency = 4} for RQ-1, RQ-2, RQ-3, and
+\texttt{concurrency = 8} for RQ-4 to stress-test the defense
+composition.
+
+The connector's leak-probability path is per-connection (not
+global), so concurrent tenants do not share a seed. The
+Evaluator's substring match is per-tenant-pair, so concurrent
+tenants do not cross-contaminate. The Logger appends to a
+single JSONL file with file-level locking; race conditions
+are confined to write boundaries, which the iteration
+flushes handle.
+
+\subsection{What the framework does not do}
+
+The framework is intentionally narrow:
+
+\begin{itemize}
+  \item It does not run a real LLM. The connector uses a
+        deterministic in-process channel; prompt-injection
+        attacks inject markers, not instructions to a model.
+  \item It does not measure silicon-level side channels. The
+        connector's timing is deterministic at the
+        microsecond scale; Spectre/Meltdown-class attacks
+        would require a separate harness.
+  \item It does not fuzz the wire protocol beyond the
+        \texttt{A-FUZZ-001} grammar attack. A full mutation
+        campaign (à la LSPFuzz~\cite{zhu_2025_lspfuzz}) is
+        future work.
+  \item It does not handle multi-language SDKs. The reference
+        connector is Python-only; the TypeScript and Rust
+        SDKs are out of scope.
+\end{itemize}
+
+These exclusions are deliberate: they keep the framework
+focused on the protocol-layer question and the empirical
+results interpretable.

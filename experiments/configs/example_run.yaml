@@ -1,0 +1,41 @@
+# Phase-6 example RunConfig.
+# Loaded by experiments/scripts/run_dummy_smoke.py to validate the
+# end-to-end harness. Phase 9 will replace `target.transport:
+# dummy` with `http_sse` and point `target.url` at the
+# vulnerable / secure reference servers.
+
+run:
+  seed: 42
+  repeats: 1
+  concurrency: 2
+
+tenants:
+  - id: tenant-A
+    name: Alice
+    allowed_tools: [echo]
+    allowed_resources: []
+  - id: tenant-B
+    name: Bob
+    allowed_tools: [echo]
+    allowed_resources: []
+
+attacks:
+  - id: A-TRN-S
+  - id: A-CCH-T
+
+defenses:
+  per_tenant_tool_registry: false
+  tenant_prefixed_cache_keys: false
+  resource_path_canonicalisation: false
+  mtls: false
+
+target:
+  transport: dummy
+  command: null
+  url: null
+  token: null
+
+output:
+  log_dir: experiments/logs
+  output_dir: experiments/outputs
+  log_format: jsonl

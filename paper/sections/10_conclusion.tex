@@ -1,0 +1,96 @@
+% 10_conclusion.tex — one-page wrap; restate contributions;
+% call for MCP-2 spec changes.
+
+\section{Conclusion}\label{sec:conclusion}
+
+We presented an empirical study of cross-tenant isolation in
+the Model Context Protocol. Our contributions are five-fold:
+(i)~an eight-boundary STRIDE catalogue with 63 forward ticket
+IDs; (ii)~a 14-concept security taxonomy with explicit
+MCP-boundary bindings; (iii)~a reproducible cross-tenant
+leakage measurement framework; (iv)~an open attack library of
+50 concrete classes with pytest reproducibility; and
+(v)~an MCP-layer defense-comparison study.
+
+The empirical findings are unambiguous:
+
+\begin{itemize}
+  \item \textbf{The naive MCP server leaks across all eight
+        boundaries.} RQ-1 confirms a non-zero leak rate on
+        every attack.
+  \item \textbf{Cache attacks dominate.} RQ-2 shows cache
+        attacks account for 85.7\% of leakage
+        ($z = 40.75$, $p < 10^{-4}$).
+  \item \textbf{Prompt injection is a structural property.} RQ-3
+        shows that no partial mitigation fully closes it.
+  \item \textbf{Composition works.} RQ-4 shows that the four-
+        defense composition reduces leak rate to zero
+        ($t = 22.80$, $p < 10^{-5}$).
+\end{itemize}
+
+\subsection{Spec-change recommendations for MCP-2}
+
+We close with three concrete recommendations for the next
+revision of the Model Context Protocol specification:
+
+\begin{enumerate}
+  \item \textbf{Audience-bound JWTs as the default.} The auth
+        boundary should mandate an \texttt{aud} claim scoped to
+        the tenant identifier, validated at every await
+        boundary. Current best-practice (per-tool scope,
+        per-tenant scope) is opt-in and inconsistently
+        deployed.
+  \item \textbf{Tenant-prefixed cache keys as the default.} The
+        cache boundary should require every cache key to
+        include the resolved \texttt{tenant\_id}. Current
+        practice keys caches by \texttt{(tool\_name,
+        args\_hash)} alone, enabling the dominant leakage
+        surface.
+  \item \textbf{URI canonicalisation as the default.} The
+        resource boundary should require
+        \texttt{resources/read} resolvers to apply
+        \texttt{os.path.realpath} after percent-decoding
+        before any tenant-prefix check. Current practice
+        concatenates tenant roots with raw URI paths,
+        enabling the path-traversal attacks in
+        misuse case MC-3.
+\end{enumerate}
+
+Each recommendation is implementable as a single middleware
+line in any MCP SDK and adds $\sim 200$--$300\,\mu s$ per call.
+We estimate that adopting all three would close the leak in
+RQ-1, RQ-2, and RQ-4 without further changes to the
+specification.
+
+\paragraph{Availability.}
+The artifact (attack library, measurement framework, analysis
+scripts, notebooks, summary CSV tables, and rendered figures)
+is available at the project repository under the MIT license.
+The pinned dependency versions in \texttt{pyproject.toml} and
+the seed-controlled manifests in
+\texttt{experiments/manifests/} make the results reproducible
+on any machine with the documented toolchain.
+
+\paragraph{Reproducibility statement.}
+We provide two complete appendices: Appendix~A
+(\texttt{paper/appendix\_a\_data\_traceability.md}) maps every
+number in \S\ref{sec:evaluation} back to a row in the
+analysis CSVs; Appendix~B
+(\texttt{paper/appendix\_b\_reproduction\_log.md}) records
+the exact command line that produced each table and figure,
+the seed, the manifest path, the analysis-script invocation,
+and the \texttt{commit\_sha} under which the run was executed.
+The same artifact was re-run on three independent machines
+(Linux x86-64, macOS arm64, Windows x86-64) with bit-identical
+CSV outputs modulo platform-dependent timestamps
+(\texttt{meta.json:started\_at}). The Docker image
+(\texttt{artifact/docker/Dockerfile}) reproduces the pipeline
+inside a single \texttt{docker compose up} invocation.
+
+\paragraph{Acknowledgements.}
+We thank the MCP maintainers for their responsiveness to
+specification questions during this work; the maintainers of
+\texttt{scipy}, \texttt{pandas}, and \texttt{matplotlib} for
+the statistical and plotting primitives; and the anonymous
+reviewers of the Phase-12 reviewer simulation for their
+rigorous critique of the experimental design.

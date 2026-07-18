@@ -1,0 +1,63 @@
+# Phase 9 — RQ-2 cache-boundary manifest.
+#
+# Research Question 2 (RQ-2):
+#   Do cache-boundary attacks account for the dominant share of
+#   leaked-event volume in vulnerable reference servers?
+#   H1: vulnerable cache attacks account for >= 50% of leakage_events.
+#
+# Design:
+#   - Attacks: cache-boundary representatives (STRIDE rows) +
+#     the cross-cutting GrammarFuzz attack (which exercises the
+#     cache layer incidentally).
+#   - Servers: vulnerable + secure.
+#   - Defenses: none (defaults).
+#   - Iterations: 30.
+#
+# Cells: 6 attacks × 2 servers × 30 iterations = 360 runs.
+
+run:
+  seed: 42
+  repeats: 1
+  concurrency: 2
+
+tenants:
+  - id: tenant-A
+    name: Alice
+    allowed_tools: [echo, scratchpad_write, scratchpad_read, cache_lookup, fetch_url]
+    allowed_resources: []
+  - id: tenant-B
+    name: Bob
+    allowed_tools: [echo, scratchpad_write, scratchpad_read, cache_lookup, fetch_url]
+    allowed_resources: []
+
+attacks:
+  - id: A-CCH-S    # Cache / Spoofing
+  - id: A-CCH-T    # Cache / Tampering
+  - id: A-CCH-R    # Cache / Repudiation
+  - id: A-CCH-I    # Cache / Information disclosure
+  - id: A-CCH-D    # Cache / Denial of service
+  - id: A-CCH-E    # Cache / Elevation of privilege
+  - id: A-FUZZ-001 # Cross-cutting GrammarFuzz attack (exercises cache)
+
+defenses:
+  per_tenant_tool_registry: false
+  tenant_prefixed_cache_keys: false
+  resource_path_canonicalisation: false
+  mtls: false
+
+target:
+  transport: dummy
+  command: null
+  url: null
+  token: null
+
+output:
+  log_dir: analysis/runs/exp-rq2-cache/logs
+  output_dir: analysis/runs/exp-rq2-cache
+  log_format: jsonl
+
+# Phase-9 cell iteration. Servers and defense levels are
+# consumed by `experiments.runner`.
+servers: [vulnerable, secure]
+defense_levels: [none]
+run_id: exp-rq2-cache

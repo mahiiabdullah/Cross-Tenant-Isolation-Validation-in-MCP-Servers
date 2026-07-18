@@ -1,0 +1,65 @@
+# Phase 9 — RQ-4 defense-combo manifest.
+#
+# Research Question 4 (RQ-4):
+#   Do defense combinations interact super-additively when ordered
+#   along the trust chain (per-tool-registry → cache-key prefixing
+#   → resource-path canonicalisation → mTLS)?
+#   H1: full defense combo drops leakage_rate by >= 50% relative
+#       to per_tenant alone at the same iteration count.
+#
+# Design:
+#   - Attacks: 5 boundary representatives (the high-leverage rows).
+#   - Server: secure only (defenses only meaningful once the
+#     server is hardened).
+#   - Defenses: 3 levels:
+#       * none    — every flag off (control).
+#       * partial — per_tenant_tool_registry only.
+#       * full    — all four flags on.
+#   - Iterations: 30.
+#
+# Cells: 5 attacks × 3 defense levels × 30 iterations = 450 runs.
+
+run:
+  seed: 42
+  repeats: 1
+  concurrency: 2
+
+tenants:
+  - id: tenant-A
+    name: Alice
+    allowed_tools: [echo, scratchpad_write, scratchpad_read, cache_lookup, fetch_url]
+    allowed_resources: []
+  - id: tenant-B
+    name: Bob
+    allowed_tools: [echo, scratchpad_write, scratchpad_read, cache_lookup, fetch_url]
+    allowed_resources: []
+
+attacks:
+  - id: A-CCH-T      # Cache / Tampering — strongest single signal
+  - id: A-RES-T      # Resource / Tampering
+  - id: A-MEM-T      # Memory / Tampering
+  - id: A-TOL-T      # Tool / Tampering
+  - id: A-AUT-T      # Auth / Tampering
+
+defenses:
+  per_tenant_tool_registry: true
+  tenant_prefixed_cache_keys: true
+  resource_path_canonicalisation: true
+  mtls: true
+
+target:
+  transport: dummy
+  command: null
+  url: null
+  token: null
+
+output:
+  log_dir: analysis/runs/exp-rq4-defense/logs
+  output_dir: analysis/runs/exp-rq4-defense
+  log_format: jsonl
+
+# Phase-9 cell iteration. Secure server only; defenses are the
+# comparison axis.
+servers: [secure]
+defense_levels: [none, per_tenant, full]
+run_id: exp-rq4-defense

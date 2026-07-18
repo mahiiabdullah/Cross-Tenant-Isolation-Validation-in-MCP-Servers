@@ -1,0 +1,18 @@
+citation_key,title,authors,year,venue,canonical_url,verification_status,cluster
+mcp_spec,Model Context Protocol Specification,Anthropic,2024,Anthropic spec page,https://modelcontextprotocol.io,VERIFIED,spec
+anthropic_mcp_announce,Introducing the Model Context Protocol,Anthropic,2024,Anthropic blog,https://www.anthropic.com/news/model-context-protocol,VERIFIED,mcp
+nist_sp_800_207,Zero Trust Architecture,Rose Borchert Mitchell Connelly,2020,NIST SP 800-207,https://csrc.nist.gov/publications/detail/sp/800-207/final,VERIFIED,architecture
+owasp_llm_top10_v11,OWASP Top 10 for LLM Applications v1.1,OWASP Foundation,2023,OWASP project page,https://owasp.org/www-project-top-10-for-large-language-model-applications/,VERIFIED,taxonomy
+firecracker_github,Firecracker (GitHub repository),Amazon Web Services,2026,GitHub,https://github.com/firecracker-microvm/firecracker,VERIFIED,sandbox
+greshake_2023_indirect,Not what you've signed up for,Greshake Abdelnabi Mishra Endres Holz Fritz,2023,arXiv 2302.12173,https://arxiv.org/abs/2302.12173,VERIFIED,injection
+zou_2023_universal,Universal and Transferable Adversarial Attacks on Aligned LLMs,Zou Wang Carlini Nasr Kolter Fredrikson,2023,arXiv 2307.15043,https://arxiv.org/abs/2307.15043,VERIFIED,injection
+chowdhury_2024_defenses,Breaking Down the Defenses (survey),Chowdhury Islam Kumar Shezan Jain Chadha,2024,arXiv 2403.04786,https://arxiv.org/abs/2403.04786,VERIFIED,survey
+wang_2024_toolcommander,From Allies to Adversaries (ToolCommander),Wang Zhang Wang Li Huang Wang Wang,2024,arXiv 2412.10198,https://arxiv.org/abs/2412.10198,VERIFIED,tool_injection
+lee_2026_webmcp,WebMCP Tool Surface Poisoning,Lee Chang Yu Yeh,2026,arXiv 2606.06387,https://arxiv.org/abs/2606.06387,VERIFIED,mcp
+torres_2026_memory,When Agents Remember Too Much,Torres Shrestha Misra,2026,arXiv 2607.06595,https://arxiv.org/abs/2607.06595,VERIFIED,memory
+chen_2026_mcp_security,Rethinking MCP Security (large-scale),Chen An Wu Wan Hong Chen Pan Dai Yang,2026,arXiv 2607.11086,https://arxiv.org/abs/2607.11086,VERIFIED,mcp
+an_2026_flowguard,FlowGuard: From Signals to Evidence,An Chen Hong Chen Wu,2026,arXiv 2607.14754,https://arxiv.org/abs/2606.06387,VERIFIED,mcp
+liu_2026_mcpevol,MCPEvol-Bench,Liu Hu Liao Wang Qian Zhai Feng Ding Wang,2026,arXiv 2607.14642,https://arxiv.org/abs/2607.14642,VERIFIED,mcp
+jing_2026_isolation,Isolation as a First-Class Principle,Jing Hu Chen Shi Zhang Yang Fan Xie Luo Chan Fan Li Song,2026,arXiv 2607.12406,https://arxiv.org/abs/2607.12406,VERIFIED,isolation
+dipta_2024_sandbox,Dynamic Frequency-Based Fingerprinting,Dipta Tiemann Gulmezoglu Marin Eisenbarth,2024,arXiv 2404.10715,https://arxiv.org/abs/2404.10715,VERIFIED,sandbox
+zhu_2025_lspfuzz,LSPFuzz: Hunting Bugs in Language Servers,Zhu Chen Terragni Wei Liu Wu Cheung,2025,arXiv 2510.00532,https://arxiv.org/abs/2510.00532,VERIFIED,lsp

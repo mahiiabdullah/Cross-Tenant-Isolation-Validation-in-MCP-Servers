@@ -1,0 +1,1 @@
+"""Property-based and grammar-based fuzzing harnesses for MCP surfaces."""

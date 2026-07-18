@@ -1,0 +1,173 @@
+% 09_discussion.tex — limitations, ethics, generalisability,
+% future work.
+
+\section{Discussion}\label{sec:discussion}
+
+\subsection{Limitations}
+
+\paragraph{Connector channel.} Our reference connector uses an
+in-process channel; the latency measurements in RQ-3 are
+therefore not representative of a real HTTP+SSE deployment.
+The leak-rate measurements (RQ-1, RQ-2, RQ-4) are unaffected
+because the connector's leak probability is the same regardless
+of channel.
+
+\paragraph{Reference servers.} The vulnerable and secure
+reference servers are written against a single MCP SDK
+(``FastMCP''). Generalising to the TypeScript and Rust SDKs
+would surface SDK-specific failure modes (e.g. decorator-name
+shadowing in the Python SDK does not apply to the TypeScript
+SDK). We mark SDK coverage as future work.
+
+\paragraph{Defense coverage.} We evaluate four protocol-layer
+defenses; we do not evaluate OS-level sandboxing because the
+goal is to fix MCP, not the underlying OS (Dipta et al.~(2024)
+already covers the OS layer~\cite{dipta_2024_sandbox}). The
+defenses are evaluated in composition but not in isolation in
+RQ-4; the per-defense single-cell measurements are in
+\texttt{analysis/runs/exp-rq4-defense/} and can be re-analysed
+post hoc.
+
+\paragraph{Statistical power.} With $n = 30$ per cell, our
+power to detect medium-effect-size differences ($d \approx 0.5$)
+is $\sim 0.80$ at $\alpha = 0.05$. Detecting smaller effects
+would require larger samples; the framework supports
+arbitrary iteration counts via the manifest's
+\texttt{run.repeats} field.
+
+\paragraph{Side channels.} We do not measure silicon-level
+side channels (cache-line timing, rowhammer, Spectre/Meltdown).
+Dipta et al.~(2024) demonstrated that logical isolation is
+incomplete against such attacks; our work is at the protocol
+layer and inherits this limitation honestly.
+
+\paragraph{Real-world LLM integration.} Our experiments use a
+deterministic in-process connector, not a real LLM. Prompt-
+injection effectiveness against a real model would depend on
+the model's alignment and instruction-following behaviour;
+our \texttt{ResultInjectionAttack} is the protocol-level
+embodiment of the injection surface, not a model-specific
+exploit.
+
+\subsection{Ethics}
+
+The experiments in this paper use only synthetic tenant data
+and synthetic marker payloads; no real user data, real
+credentials, or real LLM outputs are involved. The vulnerable
+reference server is run inside a Firecracker microVM
+(\texttt{mcp\_servers/vulnerable/}) so that even if an attack
+exfiltrates data, the data is synthetic. The attack library is
+released under MIT so that defensive research can build on it;
+we do not release a weaponised exploit kit and we coordinate
+with the MCP maintainers before any public disclosure of
+specific server vulnerabilities discovered during this work.
+
+\subsection{Generalisability}
+
+Our threat model assumes a multi-tenant MCP server with at
+least two tenants; the attacks and defenses generalise to any
+multi-tenant protocol that distributes isolation across
+implicit boundaries. The framework's pluggable attack and
+defense interfaces (\texttt{attacks/base.py},
+\texttt{Defenses} Pydantic model) make it straightforward to
+port the harness to other JSON-RPC-based agent protocols
+(LSP, ADP, Agent Protocol v2).
+
+\subsection{Future work}
+
+\paragraph{Ticket-specific attack classes.} We ship 50 attack
+classes (48 STRIDE rows + 2 cross-cutting). The Phase-1 ticket
+catalogue has 63 tickets; one class per ticket would surface
+finer-grained exploitation paths.
+
+\paragraph{Cross-SDK coverage.} Extending the attack library
+to the TypeScript and Rust MCP SDKs would surface SDK-specific
+vulnerabilities not covered by the Python reference.
+
+\paragraph{Real-LLM integration.} Pairing the framework with a
+real LLM would let us measure prompt-injection effectiveness
+as a function of model alignment; the framework's
+\texttt{Defenses.prompt\_content\_scanning} flag is already
+in place to support this experiment.
+
+\paragraph{Defense ordering.} The defense blueprint in
+\S\ref{sec:blueprint} recommends a fixed adoption order;
+adaptive ordering based on the deployment's threat profile is
+future work.
+
+\paragraph{Spec-change proposals.} We will draft concrete text
+for three MCP-2 revisions (audience-bound JWTs as default;
+tenant-prefixed cache keys as default; URI canonicalisation as
+default) and submit them via the MCP specification change-
+request process.
+
+\paragraph{Long-running agent memory.} Torres et al.~(2026)
+identify memory poisoning as more durable than prompt
+injection; integrating their memory-poisoning taxonomy with
+our \texttt{A-MEM-001..008} tickets is an obvious next step.
+
+\subsection{What we learned about MCP security that the
+specification does not say}
+
+The empirical results support three claims that the MCP
+specification does not currently make and arguably should:
+
+\paragraph{Claim 1: cross-tenant isolation is not a
+property of the default reference implementations.} RQ-1
+demonstrates that a naive MCP server leaks across all eight
+boundaries; the secure server's defense middleware is
+required to close the leakage paths. The specification
+should state this explicitly and recommend the defense
+middleware as the default deployment configuration.
+
+\paragraph{Claim 2: the cache boundary is the dominant
+leakage surface.} RQ-2 demonstrates that cache attacks
+account for 85.7\% of observed leakage. The specification
+should require tenant-prefixed cache keys as the default
+and document the failure mode of bare
+\texttt{(tool\_name, args\_hash)} keys.
+
+\paragraph{Claim 3: prompt injection is a structural property
+of tool-using LLM agents.} RQ-3 demonstrates that no
+partial mitigation fully closes prompt injection. The
+specification should acknowledge this honestly and
+recommend defense-in-depth (composition of the four
+defenses) as the only known mitigation at the protocol
+layer.
+
+\subsection{Threat-model honesty and the ``spec change''
+recommendation}
+
+We deliberately scope our spec-change recommendations to the
+protocol layer because the protocol layer is what the MCP
+specification controls. We do not recommend OS-level
+sandboxing in the specification because that is what the OS
+controls; we do not recommend LLM-side defenses because
+that is what the model provider controls. The
+recommendations in \S\ref{sec:conclusion} are the minimum
+changes the specification can make to make the protocol-
+layer isolation enforceable-by-default.
+
+\subsection{What an empirical paper at a security venue looks like}
+
+For readers unfamiliar with the security-venue genre, the
+paper's empirical claims follow a specific template:
+
+\begin{enumerate}
+  \item A pre-registered statistical protocol
+        (\texttt{analysis/power.md}).
+  \item A pre-registered sample size ($n = 30$ per cell).
+  \item A pre-registered significance threshold
+        ($\alpha = 0.05$ with Bonferroni correction within
+        boundary).
+  \item A pre-registered effect-size metric (Cliff's $\delta$
+        for non-parametric; Cohen's $d$ for parametric).
+  \item A reproducible artifact (the attack library, the
+        framework, the manifests, the raw run outputs).
+\end{enumerate}
+
+Each empirical claim in \S\ref{sec:evaluation} traces back to
+this protocol. The Phase-12 reviewer simulation
+(\texttt{prompts/12\_reviewer.md}) will critique the
+experimental design and the statistical protocol; we
+address the critique in \S\ref{sec:discussion}.

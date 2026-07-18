@@ -1,0 +1,8 @@
+attack_id,boundary,leak_count,cache_share_of_vulnerable_leaks
+A-CCH-D,tool,465,0.1429
+A-CCH-E,tool,465,0.1429
+A-CCH-I,tool,465,0.1429
+A-CCH-R,tool,465,0.1429
+A-CCH-S,tool,465,0.1429
+A-CCH-T,tool,465,0.1429
+A-FUZZ-001,tool,465,0.1429

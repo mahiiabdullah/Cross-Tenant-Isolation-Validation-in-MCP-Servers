@@ -1,0 +1,43 @@
+# docker-compose.yml — Phase-12 artefact-evaluation stack.
+#
+# Three services:
+#   framework  — the experiment harness (no long-running process;
+#                used as the entry point for `python -m
+#                experiments.runner --manifest ...`).
+#   analysis   — the Phase-10 analysis driver; on `up`, runs
+#                `analysis/scripts/run_all.py` and renders
+#                figures/tables.
+#   mcp        — the vulnerable + secure reference servers; not
+#                long-running; used as the test target for
+#                `experiments/runner.py`.
+#
+# Run with:
+#     docker compose -f artifact/docker/docker-compose.yml up analysis
+
+version: "3.9"
+
+services:
+  framework:
+    build:
+      context: ../..
+      dockerfile: artifact/docker/Dockerfile
+    command: ["python", "-c", "import framework; print('framework OK')"]
+    volumes:
+      - ../../:/workspace
+
+  analysis:
+    build:
+      context: ../..
+      dockerfile: artifact/docker/Dockerfile
+    command: ["python", "-m", "analysis.scripts.run_all"]
+    volumes:
+      - ../../analysis:/workspace/analysis
+      - ../../paper:/workspace/paper
+
+  mcp:
+    build:
+      context: ../..
+      dockerfile: artifact/docker/Dockerfile
+    command: ["python", "-c", "import mcp_servers; print('mcp_servers OK')"]
+    volumes:
+      - ../../:/workspace

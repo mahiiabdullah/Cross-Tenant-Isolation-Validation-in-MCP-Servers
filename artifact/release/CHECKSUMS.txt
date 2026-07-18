@@ -1,0 +1,13 @@
+# SHA-256 checksums for the Phase-9 analysis artefacts.
+#
+# Regenerate with:
+#     powershell -NoProfile -Command "Get-ChildItem analysis\tables,analysis\figures | Get-FileHash -Algorithm SHA256 | Select-Object Hash,Path"
+#     sha256sum analysis/tables/*.csv analysis/figures/*.pdf analysis/figures/*.png
+#
+# The single observed difference between re-runs is the
+# `started_at` / `ended_at` ISO timestamps in `meta.json`
+# (platform-dependent); the CSV contents are otherwise
+# bit-identical.
+
+# Tables (analysis/tables/)
+[PLACEHOLDER — populated by `make release`]

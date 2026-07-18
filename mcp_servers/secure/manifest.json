@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "tools": [
+    {"name": "echo", "description": "Echo the arguments back."},
+    {"name": "scratchpad_write", "description": "Write to a tenant-scoped scratchpad."},
+    {"name": "scratchpad_read", "description": "Read from a tenant-scoped scratchpad."},
+    {"name": "cache_lookup", "description": "Look up a cache entry keyed by tenant + tool + prompt hash."},
+    {"name": "fetch_url", "description": "Fetch a URL with allowlist enforcement."}
+  ]
+}

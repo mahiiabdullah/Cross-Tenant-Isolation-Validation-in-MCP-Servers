@@ -1,0 +1,97 @@
+% main.tex — Phase-11 paper master file
+%
+% Compile with:
+%     latexmk -pdf paper/main.tex
+% The build runs from the repository root; all \input and
+% \includegraphics paths are relative to paper/.
+
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage{preamble}
+
+% BibLaTeX with alphabetic style per prompts/11_paper.md §Mandatory
+% Style Rules #1.
+\usepackage[backend=biber,style=alphabetic,sorting=ynt]{biblatex}
+\addbibresource{references.bib}
+
+\title{\project}
+
+\author{%
+  MCP Isolation Research Authors\\
+  \texttt{\{authors\}@mcp-iso.research}%
+}
+
+\date{July 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\noindent
+The \mcp{} distributes isolation across eight implicit trust
+boundaries without mandating enforcement at any of them. As
+multi-tenant deployments emerge, cross-tenant leakage becomes a
+first-class concern: we present the first systematic study of
+\emph{cross-tenant} MCP isolation, complementing Chen et al.'s
+single-tenant runtime study. We catalogue all eight boundaries
+with STRIDE attack-surface rows (63 ticket IDs, four misuse
+cases), ship an open attack library of 50 concrete classes
+(48 per-boundary plus prompt injection and grammar fuzzing), and
+introduce a reproducible framework that measures cross-tenant
+leakage under controlled concurrency. Across four research
+questions and 30 iterations per cell, cache attacks dominate the
+vulnerable server's leakage volume (85.7\%, $z = 40.73$,
+$p < 10^{-4}$); the composition of four protocol-layer defenses
+(per-tenant tool registry, tenant-prefixed cache keys,
+resource-path canonicalisation, audience-bound JWTs) reduces
+leak rate to zero (sign test $p = 0.031$, Wilcoxon
+$p = 0.031$); no single defense closes the gap alone. We close
+with a layered defense blueprint and three concrete
+spec-change recommendations for MCP-2. \emph{All experiments use
+synthetic tenant data; no real user data, credentials, or LLM
+outputs are involved. The vulnerable reference server runs
+inside a Firecracker microVM.}
+\end{abstract}
+
+% Optional keywords line (USENIX uses \beginkeywords).
+\begin{keywords}
+Model Context Protocol, multi-tenant isolation, MCP security,
+prompt injection, cross-tenant leakage, STRIDE, fuzzing,
+defense-in-depth, capability-based security.
+\end{keywords}
+
+\section{Introduction}
+\input{sections/01_introduction}
+
+\section{Background}
+\input{sections/02_background}
+
+\section{Threat Model}
+\input{sections/03_threat_model}
+
+\section{Framework Design}
+\input{sections/04_framework}
+
+\section{Attack Library}
+\input{sections/05_attacks}
+
+\section{Evaluation}
+\input{sections/06_evaluation}
+
+\section{Defense Strategies}
+\input{sections/07_defenses}
+
+\section{Related Work}
+\input{sections/08_related_work}
+
+\section{Discussion}
+\input{sections/09_discussion}
+
+\section{Conclusion}
+\input{sections/10_conclusion}
+
+% Single consolidated bibliography at the end (alphabetic labels).
+\printbibliography
+
+\end{document}

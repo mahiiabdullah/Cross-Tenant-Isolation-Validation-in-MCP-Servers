@@ -1,0 +1,184 @@
+% 01_introduction.tex
+
+The \mcp{} (\mcp{}) was introduced in late 2024 as an open
+standard for connecting LLM agents to external tools, resources,
+and prompt templates~\cite{mcp_spec,anthropic_mcp_announce}. Its
+adoption has been rapid: every major model provider now ships an
+MCP client, and a public registry lists thousands of community
+servers ranging from filesystem gateways to database frontends.
+The protocol's appeal is its simplicity---a single JSON-RPC
+envelope with three core methods (\texttt{tools/call},
+\texttt{resources/read}, \texttt{prompts/get}) plus a thin
+\texttt{initialize} handshake---but that simplicity comes at a
+cost. MCP distributes \emph{isolation} across eight implicit
+trust boundaries (transport, session, namespace, tool, resource,
+memory, cache, authentication) without mandating concrete
+enforcement at any of them. As deployments move from
+single-tenant desktop setups to multi-tenant server fleets, the
+question of \emph{cross-tenant isolation} becomes central: can
+one tenant observe another's tool calls, results, cached state,
+or session metadata? The MCP specification is silent on the
+question, and mainstream reference implementations inherited the
+silence.
+
+\paragraph{Why this matters.}
+A multi-tenant MCP server that serves multiple users, agents, or
+organisations inherits the threat model of any multi-tenant
+service: each tenant's data and computation must be confined to
+that tenant. The recent empirical study by Chen et al.~(2026)
+finds that runtime MCP servers routinely share stdio workers,
+follow symlinks across tenant roots, and key caches without
+tenant identity~\cite{chen_2026_mcp_security}. Concurrent work
+argues that isolation is a first-class principle for LLM-agent
+safety but provides neither a concrete boundary catalogue nor
+empirical measurement~\cite{jing_2026_isolation}. The gap is
+empirical and architectural: no prior work has systematically
+catalogued MCP isolation failures across all eight boundaries,
+mapped them to automated attack patterns, and measured their
+leakage under a reproducible multi-tenant harness.
+
+\paragraph{Our approach.}
+We close the gap with a five-part study:
+
+\begin{enumerate}
+  \item \textbf{An isolation-boundary catalogue} for MCP. We
+        enumerate all eight boundaries and tag each with STRIDE
+        rows~\cite{stride_orig} and 63 forward ticket IDs
+        ($A$-$\{TRN,SES,NSP,TOL,RES,MEM,CCH,AUT\}$-$\{nnn\}$).
+  \item \textbf{A 14-concept security taxonomy} with explicit
+        MCP-boundary bindings, covering prompt injection,
+        confused deputy, capability-based access control,
+        sandboxing, side-channel leakage, cache poisoning,
+        memory poisoning, namespace collision, tool squatting,
+        resource traversal, request smuggling, and authentication
+        bypass.
+  \item \textbf{A reproducible empirical framework} that measures
+        cross-tenant leakage in MCP deployments under controlled
+        multi-tenant concurrency, reporting
+        \emph{leakage\_rate}, \emph{time\_to\_leak},
+        \emph{defense\_overhead}, and \emph{utility\_retention}
+        per boundary.
+  \item \textbf{An open attack library of 50 concrete attack
+        classes} covering every MCP boundary, each with
+        CVSS~v3.1 scoring and pytest reproducibility.
+  \item \textbf{An empirical defense comparison} at the MCP layer
+        (not the OS layer) quantifying leakage reduction from
+        per-tenant tool registries, tenant-prefixed cache keys,
+        resource-path canonicalisation, and audience-bound
+        authentication tokens---individually and in composition.
+\end{enumerate}
+
+\paragraph{Top-line findings.}
+Across eight baseline attacks, four research questions, and 30
+iterations per cell, we find:
+
+\begin{itemize}
+  \item \textbf{RQ-1} (baseline isolation): cache attacks dominate
+        the vulnerable server's leakage volume, accounting for
+        85.7\% of all observed leakage ($z = 40.75$, $p < 10^{-4}$
+        vs. an even split).
+  \item \textbf{RQ-2} (cache dominance): the cache boundary is the
+        single most-exploitable surface; cache attacks are the
+        cheapest path to cross-tenant data disclosure in our
+        reference vulnerable server.
+  \item \textbf{RQ-3} (prompt-injection residual): even the
+        hardened secure server exhibits non-trivial leakage under
+        repeated prompt-injection attacks (mean leak rate
+        $0.5$), confirming that prompt injection is a structural
+        property of tool-using LLM agents and not a patch
+        target.
+  \item \textbf{RQ-4} (defense composition): no single defense
+        closes the gap, but the composition of all four defenses
+        reduces leak rate to zero ($t = 22.80$, $p < 10^{-5}$ on
+        a paired Welch's $t$-test), validating defense-in-depth
+        at the MCP layer.
+\end{itemize}
+
+\paragraph{Contributions.}
+We make five contributions to the security of multi-tenant LLM
+agent infrastructure:
+
+\begin{enumerate}
+  \item \textbf{An eight-boundary catalogue} for the Model Context
+        Protocol, covering all eight protocol boundaries with
+        STRIDE-tagged attack surfaces and 63 forward ticket IDs
+        (\S\ref{sec:threat_model}). \emph{Delta vs.\ prior work:}
+        Jing et al.~(2026) propose 5 generic LLM-agent
+        boundaries~\cite{jing_2026_isolation}; ours is 8
+        MCP-specific boundaries with concrete STRIDE rows.
+  \item \textbf{A 14-concept security taxonomy with explicit
+        MCP-boundary bindings} (\S\ref{sec:background}).
+        \emph{Delta vs.\ prior work:} OWASP LLM Top 10
+        v1.1~\cite{owasp_llm_top10_v11} is LLM-application-level,
+        not protocol-level; no prior work pins security concepts
+        to MCP boundaries.
+  \item \textbf{A reproducible empirical framework} that measures
+        cross-tenant leakage in MCP deployments under controlled
+        multi-tenant concurrency (\S\ref{sec:framework}).
+        \emph{Delta vs.\ prior work:} Chen et al.~(2026)
+        benchmark static scanners~\cite{chen_2026_mcp_security};
+        An et al.~(2026) detect but do not measure
+        leakage~\cite{an_2026_flowguard}; Liu et al.~(2026) study
+        tool evolution, not tenant
+        isolation~\cite{liu_2026_mcpevol}.
+  \item \textbf{An open attack library of 50 concrete attack
+        classes} covering every MCP boundary, each with CVSS~v3.1
+        scoring and pytest reproducibility (\S\ref{sec:attacks}).
+        \emph{Delta vs.\ prior work:} Wang et al.~(2024),
+        Torres et al.~(2026), and Lee et al.~(2026) each
+        demonstrate one failure mode in isolation; no prior work
+        composes them into a single library with uniform pytest
+        reproducibility~\cite{wang_2024_toolcommander,
+        torres_2026_memory,lee_2026_webmcp}.
+  \item \textbf{An MCP-layer defense-comparison study}
+        (\S\ref{sec:evaluation}). \emph{Delta vs.\ prior work:}
+        Dipta et al.~(2024) study OS-level sandbox side
+        channels~\cite{dipta_2024_sandbox}; ours is
+        protocol-level and measures leakage reduction under
+        defense composition.
+\end{enumerate}
+
+\paragraph{Why a paper now?}
+The MCP specification is under active revision, and our
+empirical findings and defense blueprint can inform the next
+revision (\S\ref{sec:conclusion}). We release the attack library,
+the measurement framework, and the analysis notebooks as open
+source so that the community can reproduce and extend our
+results. The artifact is described in Appendix~A and is
+available at the project repository.
+
+\paragraph{Organisation.}
+\S\ref{sec:background} introduces MCP and the isolation primer;
+\S\ref{sec:threat_model} presents our threat model;
+\S\ref{sec:framework} describes the measurement framework;
+\S\ref{sec:attacks} catalogues the attack library;
+\S\ref{sec:evaluation} answers the four research questions;
+\S\ref{sec:defenses} details the defense blueprint;
+\S\ref{sec:related} situates our work in the literature;
+\S\ref{sec:discussion} discusses limitations and ethics; and
+\S\ref{sec:conclusion} concludes with spec-change
+recommendations.
+
+\paragraph{Threat-model scope.}
+We deliberately scope our threat model to the protocol layer
+(\S\ref{sec:background}--\S\ref{sec:threat_model}). Physical-layer
+side channels~\cite{dipta_2024_sandbox}, kernel-level compromise,
+and LLM-provider compromise are out of scope and disclosed
+honestly in \S\ref{sec:discussion}. Our empirical claims are
+therefore about \emph{what an MCP server that follows the spec
+can be made to leak}, not about what a determined adversary with
+host-level access can do. This scoping is consistent with the
+adjacent protocol-security literature~\cite{zhu_2025_lspfuzz,
+chen_2026_mcp_security}.
+
+\paragraph{Reproducibility.}
+All artefacts --- attack library, measurement framework,
+manifests, raw run outputs, analysis notebooks, summary CSVs,
+and rendered figures --- are open source under the MIT license.
+The pinned dependency versions in \texttt{pyproject.toml} and
+the seed-controlled manifests in
+\texttt{experiments/manifests/} make the results reproducible
+on any machine with the documented toolchain. We ran the full
+RQ-1--RQ-4 suite on three independent machines (Linux x86-64,
+macOS arm64, Windows x86-64) and obtained bit-identical CSVs
+modulo platform-dependent timestamps.

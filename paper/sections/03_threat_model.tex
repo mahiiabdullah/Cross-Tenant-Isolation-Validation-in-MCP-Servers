@@ -1,0 +1,248 @@
+% 03_threat_model.tex — mirrors docs/02_Threat_Model.md and
+% docs/04_Attack_Taxonomy.md.
+
+\section{Threat Model}\label{sec:threat_model}
+
+We model the MCP server as the trust boundary under study. The
+LLM provider is assumed trusted; the network between client and
+server is assumed hostile unless TLS is configured; the kernel
+of the server host is assumed trustworthy in our reference
+deployment but is honestly disclosed as out-of-scope for the
+protocol-level threat model. The full per-boundary STRIDE
+enumeration is in our attack taxonomy
+(\texttt{docs/04\_Attack\_Taxonomy.md}; summarised here in
+\S\ref{sec:taxonomy-tables} for self-containedness).
+
+\subsection{Actors}
+
+\begin{itemize}
+  \item \textbf{Honest Tenant.} A user with legitimate access to
+        a subset of MCP tools and resources.
+  \item \textbf{Malicious Tenant.} A user who attempts to access
+        data or capabilities outside their authorized scope.
+  \item \textbf{Compromised Agent.} An MCP host whose prompt
+        context is partially controlled by an attacker.
+  \item \textbf{Malicious MCP Server.} A server that misbehaves
+        across tenants.
+  \item \textbf{Network Adversary.} Passive observer or active
+        MITM on the transport channel.
+  \item \textbf{Server Admin.} Operator with host-level access;
+        trusted in our reference deployment but not in the
+        protocol-level threat model.
+\end{itemize}
+
+\subsection{Attacker capabilities (in scope)}
+
+The attacker has execution rights in \emph{one} legitimate tenant
+account (Tenant~A). The attacker can register tools, read public
+resources, and call any public method on the server. The
+attacker can inject content via prompt, resource, or tool
+result. The attacker can observe timing and error responses from
+the server. The attacker can run multiple concurrent connections
+simultaneously, subject to per-tenant rate limits if any.
+
+\subsection{Out-of-scope threats}
+
+The following are explicitly excluded from our evaluation:
+
+\begin{itemize}
+  \item Kernel-level compromise of the server host.
+  \item LLM-provider compromise (theft of model weights,
+        backdoored model serving).
+  \item Side channels on shared silicon (cache-line timing,
+        rowhammer, Spectre/Meltdown-class attacks)~\cite{dipta_2024_sandbox}.
+  \item Physical access to the server.
+  \item Compromise of the upstream identity provider.
+\end{itemize}
+
+\subsection{Assets}
+
+\begin{itemize}
+  \item \textbf{Data.} Tenant-owned documents, embeddings,
+        conversation history, tool outputs, cached prompts,
+        resource blobs.
+  \item \textbf{Credentials.} Bearer tokens, mTLS client
+        certificates, refresh tokens, session IDs.
+  \item \textbf{Sessions.} Per-connection state: resolved
+        principal, per-session caches, in-flight cancellation
+        tokens, SSE event queues.
+  \item \textbf{Embeddings.} Server-side vector representations
+        of prior prompts and tool outputs (long-lived PII risk).
+  \item \textbf{Tool outputs.} Cached or in-flight results from
+        \texttt{tools/call} invocations.
+  \item \textbf{Capability registries.} Server-side tool,
+        resource, and prompt catalogues and the descriptors they
+        expose.
+\end{itemize}
+
+\subsection{Per-boundary STRIDE}\label{sec:taxonomy-tables}
+
+We enumerate eight STRIDE tables (one per boundary) with 48
+rows. Each row carries a STRIDE letter, a one-sentence threat
+description, one or more ticket IDs from our 63-ticket
+catalogue, and a CWE reference. The tables are reproduced in
+full in Appendix~B for self-containedness; an excerpt is given
+below.
+
+\begin{table}[t]
+\caption{Per-boundary STRIDE enumeration (excerpt). Full table in
+Appendix~B; see \texttt{docs/04\_Attack\_Taxonomy.md} for the
+authoritative source.}
+\label{tab:stride-excerpt}
+\centering
+\small
+\begin{tabularx}{\linewidth}{l l X l}
+\toprule
+Boundary & STRIDE & Threat & Ticket \\
+\midrule
+Transport & S & Token/session replay from cleartext channel & \texttt{A-TRN-002} \\
+Session   & I & SSE queue keyed on \texttt{session\_id} only     & \texttt{A-SES-003} \\
+Namespace & E & Decorator-name shadowing in Python SDK         & \texttt{A-NSP-007} \\
+Tool      & I & Cross-tenant context capture via shared queue   & \texttt{A-TOL-003} \\
+Resource  & I & Path traversal across tenants via \texttt{..}   & \texttt{A-RES-001} \\
+Memory    & I & Embedding-store PII persistence                 & \texttt{A-MEM-004} \\
+Cache     & I & Cross-tenant hit on missing \texttt{tenant\_id} & \texttt{A-CCH-003} \\
+Auth      & I & Token forwarding via SSRF                      & \texttt{A-AUT-004} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Misuse cases}
+
+We provide four concrete misuse cases, each pinned to $\geq 2$
+ticket IDs and a likelihood/impact rating. These are the
+executable seeds of our attack library
+(\S\ref{sec:attacks}).
+
+\paragraph{MC-1: Cross-tenant environment-variable overwrite via
+tool shadowing.} Tenant~A registers a tool named
+\texttt{set\_env} that writes to a shared scratchpad keyed by
+\texttt{env\_var\_name} (no \texttt{tenant\_id}); Tenant~B
+subsequently calls any tool that reads \texttt{PATH} from the
+same scratchpad and receives Tenant~A's value. \emph{Likelihood:}
+high. \emph{Impact:} high (PATH hijack, credential theft).
+Mapped to \texttt{A-NSP-001}, \texttt{A-TOL-005},
+\texttt{A-MEM-002}.
+
+\paragraph{MC-2: Session fixation across server restart.} Server
+uses predictable session IDs and reuses them after restart;
+Tenant~A resumes Tenant~B's session ID and reads Tenant~B's
+cached tool outputs. \emph{Likelihood:} medium. \emph{Impact:}
+high. Mapped to \texttt{A-SES-001}, \texttt{A-SES-002},
+\texttt{A-CCH-003}.
+
+\paragraph{MC-3: Resource path traversal via percent-encoded
+slashes.} Server accepts \texttt{file://} URIs as resource
+identifiers but does not canonicalise \texttt{..} segments or
+strip percent-encoded slashes; Tenant~A reads
+Tenant~B's secrets via a URI like
+\texttt{file:///tenant-a/..\%2F..\%2Ftenant-b\%2Fsecrets.txt}.
+\emph{Likelihood:} high. \emph{Impact:} critical. Mapped to
+\texttt{A-RES-001}, \texttt{A-RES-002}, \texttt{A-RES-003}.
+
+\paragraph{MC-4: Embedding cache poisoning via prompt collision.}
+Server caches prompt embeddings keyed by \texttt{prompt\_hash}
+only; Tenant~A crafts a colliding prompt and reads
+Tenant~B's embedding from the cache. \emph{Likelihood:} low.
+\emph{Impact:} medium-high. Mapped to \texttt{A-CCH-004},
+\texttt{A-MEM-004}.
+
+\subsection{Data-flow diagram}
+
+A high-level data-flow diagram with trust-boundary edges is
+available in \texttt{docs/diagrams/dfd\_trust\_boundaries.svg}.
+The DFD shows the orchestrator / MCP server / Tenant~A /
+Tenant~B data flow with trust-boundary edges annotated.
+
+\subsection{Assumptions}
+
+\begin{itemize}
+  \item The attacker has at most one legitimate tenant account.
+  \item The LLM provider is trusted; the MCP server is the
+        trust boundary under study.
+  \item The network between client and server is hostile unless
+        TLS is configured.
+  \item Our reference servers (\texttt{mcp\_servers/vulnerable/}
+        and \texttt{mcp\_servers/secure/}) are run in Firecracker
+        microVMs~\cite{firecracker_github} to limit kernel-level
+        collateral damage during attack execution.
+\end{itemize}
+
+\subsection{What is not in the threat model (and why)}
+
+Three classes of attacks are deliberately excluded from our
+threat model because they are orthogonal to the protocol-layer
+question we study:
+
+\paragraph{Host-level compromise.} A kernel-level compromise
+of the server host (e.g. via a malicious dependency, a
+vulnerable syscall, or a container escape) is out of scope. We
+assume the host's syscall surface and its microVM boundary
+hold. The MCP specification cannot defend against a kernel
+compromise; that is the OS's responsibility. Our reference
+deployment runs inside Firecracker precisely so that even a
+kernel compromise is contained.
+
+\paragraph{LLM-provider compromise.} Theft of model weights,
+backdoored model serving, or prompt-level jailbreaks of the
+LLM itself are out of scope. We assume the LLM provider follows
+its own security practices (e.g. strict output filtering,
+rate limiting, content moderation). Mid-session tool-injection
+via tool-result content is \emph{in} scope because it targets
+the MCP layer, not the LLM.
+
+\paragraph{Silicon-level side channels.} Cache-line timing,
+rowhammer, and Spectre/Meltdown-class attacks on shared
+silicon~\cite{dipta_2024_sandbox} are out of scope. These
+attacks survive any protocol-layer defense. We acknowledge
+them in \S\ref{sec:discussion} as a threat-model limitation
+and recommend running the secure server inside a microVM to
+contain them.
+
+\subsection{Threat-model consistency with adjacent work}
+
+Our threat model is consistent with the conventions established
+by the adjacent protocol-security literature:
+
+\begin{itemize}
+  \item LSPFuzz~\cite{zhu_2025_lspfuzz} scopes its threat model to
+        the LSP wire protocol and explicitly excludes kernel-
+        level issues; we mirror this scoping.
+  \item FlowGuard~\cite{an_2026_flowguard} scopes its detector to
+        MCP-server behaviour traces; we mirror this scoping.
+  \item Chen et al.'s large-scale empirical study~\cite{chen_2026_mcp_security}
+        scopes its findings to runtime MCP servers;
+        we mirror this scoping.
+  \item Dipta et al.'s sandbox-fingerprinting work~\cite{dipta_2024_sandbox}
+        is the explicit reference for what is \emph{not} in
+        scope.
+\end{itemize}
+
+The consistency is deliberate: threat-model scoping is a
+literature contract; an MCP paper that included kernel
+side-channels in scope would be unpublishable at a security
+venue because the defences it proposes would be irrelevant.
+By scoping to the protocol layer, our defenses are
+\emph{necessary} (the protocol layer must close its own
+leakage paths before any sandbox can be effective) and
+\emph{sufficient for the protocol layer} (RQ-4 confirms
+zero leakage at the composition point).
+
+\subsection{Attacker profile}
+
+We assume a \emph{tenant-class} attacker: one who has obtained
+legitimate credentials for one tenant account (via phishing,
+credential stuffing, purchase on a grey market, or a rogue
+employee). The attacker is \emph{not} an insider with host-level
+access; the attacker is \emph{not} a nation-state with the
+ability to compromise the upstream identity provider; the
+attacker \emph{can} register tools, read public resources, call
+any public method, inject content via prompt, resource, or
+tool result, observe timing and error responses, and run
+multiple concurrent connections.
+
+This profile matches the threat model in the OWASP LLM Top
+10~\cite{owasp_llm_top10_v11} and the adversarial examples in
+Chowdhury et al.'s defenses survey~\cite{chowdhury_2024_defenses}.
+It is the most demanding profile that the protocol layer can
+defend against without hardware support.

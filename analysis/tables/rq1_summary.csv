@@ -1,0 +1,9 @@
+attack_id,boundary,leak_rate_vulnerable,leak_rate_secure,welch_t,welch_p,cliffs_delta,bonferroni_p,sig,n_events
+A-AUT-T,auth,0.5,0.5,0.0,1.0,0.0,1.0,,2790
+A-MEM-T,memory,0.5,0.5,0.0,1.0,0.0,1.0,,2790
+A-RES-T,resource,0.5,0.5,0.0,1.0,0.0,1.0,,2790
+A-SES-T,session,0.5,0.5,0.0,1.0,0.0,1.0,,2790
+A-CCH-T,tool,0.5,0.5,0.0,1.0,0.0,1.0,,2790
+A-NSP-T,tool,0.5,0.5,0.0,1.0,0.0,1.0,,2790
+A-TOL-T,tool,0.5,0.5,0.0,1.0,0.0,1.0,,2790
+A-TRN-S,tool,0.5,0.5,0.0,1.0,0.0,1.0,,2790

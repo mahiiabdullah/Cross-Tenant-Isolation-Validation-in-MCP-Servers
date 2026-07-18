@@ -1,0 +1,230 @@
+% 08_related_work.tex — synthesises literature/related_work.md.
+
+\section{Related Work}\label{sec:related}
+
+We situate our work in six clusters of prior literature,
+organised by the boundary or methodology they target.
+
+\subsection{LLM tool-use and prompt injection}
+
+Greshake et al.~(2023) introduced the concept of \emph{indirect
+prompt injection} via tool and retrieval content, demonstrating
+that LLM-integrated applications are broadly exploitable
+through content they fetch~\cite{greshake_2023_indirect}. Zou
+et al.~(2023) developed automated, transferable adversarial
+suffixes for aligned LLMs via greedy coordinate-gradient
+search~\cite{zou_2023_universal}. Chowdhury et al.~(2024)
+provided a comparative survey of attacks on LLMs and showed
+that defenses fail in isolation and under
+composition~\cite{chowdhury_2024_defenses} --- the same
+empirical pattern we observe at the MCP layer. Wang et
+al.~(2024) built ToolCommander, a framework for LLM
+tool-scheduling hijack via injected tool descriptors, which
+matches our \texttt{A-NSP-001} and \texttt{A-TOL-005}
+findings~\cite{wang_2024_toolcommander}. These works establish
+that prompt injection is a structural property of LLM agents
+and that tool scheduling is exploitable; we extend both
+findings to the MCP protocol layer with concrete per-boundary
+attack patterns.
+
+\subsection{MCP and agent-protocol security}
+
+Chen et al.~(2026) conducted the largest empirical study of
+runtime MCP servers to date, finding that scanners under-
+report runtime risks and that production servers routinely
+share stdio workers and follow symlinks across tenant
+roots~\cite{chen_2026_mcp_security}. Their work validates our
+Phase-1 threat model at scale. An et al.~(2026) introduced
+FlowGuard, a behavioural-trace correlation detector for MCP
+security~\cite{an_2026_flowguard}; their methodological
+approach informs our Evaluator module (\S\ref{sec:framework}).
+Lee et al.~(2026) demonstrated mid-session tool injection in
+WebMCP, showing that third-party-script registry mutation
+bypasses pre-session policies~\cite{lee_2026_webmcp}; we add
+\texttt{notifications/tools/list\_changed} audit-trail support
+to our reference secure server in response. Liu et al.~(2026)
+introduced MCPEvol-Bench, a dynamic-evolution benchmark that
+shows static benchmarks overstate robustness~\cite{liu_2026_mcpevol};
+mid-session mutations are now first-class in our attack
+library. Jing et al.~(2026) argued for \emph{isolation as a
+first-class principle} for LLM-agent
+safety~\cite{jing_2026_isolation} --- the exact framing of
+our paper --- but provided neither a concrete boundary
+catalogue nor empirical measurement.
+
+\subsection{Memory and cache attacks}
+
+Torres et al.~(2026) demonstrated long-term memory poisoning
+in LLM agents, showing that memory entries persist across
+sessions and that write-time detection is
+preferred~\cite{torres_2026_memory}. Their findings bridge the
+prompt-injection cluster and our memory/cache boundaries: the
+agent-side counterpart of our \texttt{A-CCH-001} /
+\texttt{A-MEM-001} MCP-side failure modes.
+
+\subsection{Sandboxing and physical isolation}
+
+Dipta et al.~(2024) demonstrated that side channels survive
+logical sandboxing: their dynamic frequency-based
+fingerprinting attack defeats gVisor, Firecracker, SGX, and
+SEV~\cite{dipta_2024_sandbox}. This is a threat-model
+limitation we honestly disclose (\S\ref{sec:discussion}); our
+work is at the MCP protocol layer, not the silicon layer.
+Amazon's Firecracker microVM~\cite{firecracker_github} is the
+substrate for our reference-server deployment.
+
+\subsection{Standards and architectural priors}
+
+NIST SP 800-207 (Zero Trust Architecture~\cite{nist_sp_800_207})
+provides the architectural prior for our defense blueprint:
+\emph{never trust, always verify}. The OWASP LLM Top 10
+v1.1~\cite{owasp_llm_top10_v11} provides the LLM-application
+taxonomy; we extend it to the protocol layer with explicit
+MCP-boundary bindings. The MCP specification and Anthropic's
+announcement~\cite{mcp_spec,anthropic_mcp_announce} are the
+specification under study; our defense blueprint and spec-
+change recommendations target the next revision (MCP-2).
+
+\subsection{LSP analogue}
+
+Zhu et al.~(2025) introduced LSPFuzz, a grammar-aware fuzzing
+campaign over $\sim$300 LSP servers that found many
+bugs~\cite{zhu_2025_lspfuzz}. LSP and MCP are both JSON-RPC-
+based protocols between a host and a language/tool-specific
+server; LSPFuzz is the closest architectural analogue and the
+methodological template for our \texttt{GrammarFuzzAttack}
+(\texttt{A-FUZZ-001}). We adapt the campaign to MCP's eight-
+boundary surface.
+
+\subsection{Positioning summary}
+
+\begin{table}[t]
+\caption{Positioning vs.\ prior work. \checkmark{} = covered;
+$\triangle$ = partial; $\times$ = not covered.}
+\label{tab:positioning}
+\centering
+\small
+\begin{tabularx}{\linewidth}{l c c c c c}
+\toprule
+                                & \rotatebox{70}{Greshake 2023} & \rotatebox{70}{Wang 2024} & \rotatebox{70}{Torres 2026} & \rotatebox{70}{Chen 2026} & \rotatebox{70}{This work} \\
+\midrule
+Eight-boundary catalogue      & $\times$  & $\times$ & $\times$ & $\triangle$ & \checkmark \\
+Concrete per-boundary attacks  & $\times$  & $\triangle$ & $\triangle$ & $\triangle$ & \checkmark \\
+Reproducible harness           & $\times$  & $\checkmark$ & $\times$ & $\triangle$ & \checkmark \\
+Multi-tenant leakage metric   & $\times$  & $\times$ & $\times$ & $\times$ & \checkmark \\
+Defense-composition study      & $\times$  & $\times$ & $\times$ & $\times$ & \checkmark \\
+Open attack library            & $\times$  & $\times$ & $\times$ & $\times$ & \checkmark \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The novelty score is 8/10 per our pre-registered Phase-4
+assessment (\texttt{docs/01\_Research\_Gap.md}); the
+empirical numbers in this paper upgrade the conceptual
+scaffolding to executed evidence.
+
+\subsection{How our threat model differs}
+
+Our threat model differs from each prior cluster in a specific
+way:
+
+\begin{itemize}
+  \item \textbf{vs.\ Greshake et al.~(2023)}: their threat
+        model is the LLM-integrated application; ours is the
+        MCP server. Indirect prompt injection is the common
+        surface; the defense locus differs.
+  \item \textbf{vs.\ Wang et al.~(2024)}: their threat model
+        is the LLM tool scheduler; ours is the MCP namespace
+        boundary. ToolCommander demonstrates tool-scheduling
+        hijack; our \texttt{A-NSP-001} row is the MCP-specific
+        analogue.
+  \item \textbf{vs.\ Torres et al.~(2026)}: their threat model
+        is agent-side memory; ours is server-side cache +
+        memory. The agent-server symmetry is what makes the
+        two papers complementary: Torres covers the agent
+        half of the boundary; we cover the server half.
+  \item \textbf{vs.\ Chen et al.~(2026)}: their threat model
+        is the MCP server's single-tenant default behaviour;
+        ours is the multi-tenant isolation surface. Chen
+        measures single-tenant runtime risk; we measure
+        cross-tenant leakage.
+  \item \textbf{vs.\ An et al.~(2026)}: their threat model is
+        MCP-server signal traces; ours is MCP-server
+        protocol-level leakage. FlowGuard detects; we measure.
+  \item \textbf{vs.\ Lee et al.~(2026)}: their threat model
+        is WebMCP mid-session mutation; ours is MCP static
+        surface plus mid-session defence audit. The two
+        threat models are bridged by the
+        \texttt{notifications/tools/list\_changed} audit-trail
+        recommendation in our defense blueprint.
+  \item \textbf{vs.\ Liu et al.~(2026)}: their threat model is
+        MCP-server tool evolution; ours is MCP-server
+        isolation. MCPEvol-Bench studies robustness under
+        change; we study leakage under concurrency.
+  \item \textbf{vs.\ Jing et al.~(2026)}: their threat model
+        is LLM-agent safety in general; ours is MCP
+        multi-tenant safety specifically. Jing argues for
+        isolation as a first-class principle; we
+        operationalise it with concrete boundaries and
+        defenses.
+  \item \textbf{vs.\ Dipta et al.~(2024)}: their threat model
+        is OS-level sandboxing; ours is protocol-level
+        isolation. The two papers are complementary: Dipta
+        covers what protocol-layer defenses cannot close;
+        we cover what OS-layer sandboxes cannot close.
+\end{itemize}
+
+The common thread is that \emph{no prior work} combines all
+eight boundaries, all six STRIDE letters, a reproducible
+multi-tenant harness, a leakage metric, and a defense-
+composition study. The combination is the unit of novelty.
+
+\subsection{Cluster F revisited: why LSPFuzz is the closest analogue}
+
+LSPFuzz~\cite{zhu_2025_lspfuzz} is the closest architectural
+analogue to MCP because LSP and MCP share three structural
+properties:
+
+\begin{enumerate}
+  \item Both are JSON-RPC-2.0-based protocols.
+  \item Both mediate between a host (an editor or an agent
+        runtime) and a language/tool-specific server.
+  \item Both are stateless at the protocol level but stateful
+        at the server level.
+\end{enumerate}
+
+LSPFuzz's grammar-aware fuzzing campaign over $\sim$300 LSP
+servers is therefore the methodological template for our
+\texttt{GrammarFuzzAttack}; the differences are in the
+attack-surface derivation (LSP's surface is grammar-shaped;
+MCP's surface is boundary-shaped). We adapt LSPFuzz's
+approach to the eight-boundary surface and add the
+\texttt{A-CCH-*} cache attacks that have no LSP analogue.
+
+\subsection{Cluster E revisited: standards as the design prior}
+
+Our defense blueprint is consistent with three standards-
+level priors:
+
+\begin{itemize}
+  \item \textbf{NIST SP 800-207 (Zero Trust)}
+        \cite{nist_sp_800_207}: ``never trust, always verify''
+        is the design principle behind all four defenses.
+        Each defense re-validates the tenant identity at a
+        different boundary.
+  \item \textbf{OWASP LLM Top 10 v1.1}
+        \cite{owasp_llm_top10_v11}: LLM01 (prompt injection)
+        and LLM06 (sensitive information disclosure) are the
+        two entries our defenses address; the others are out
+        of scope.
+  \item \textbf{MCP specification}
+        \cite{mcp_spec,anthropic_mcp_announce}: the spec
+        defines the wire protocol; our spec-change
+        recommendations are the minimum changes required
+        to make the protocol-level isolation
+        enforceable-by-default.
+\end{itemize}
+
+The defense blueprint is therefore not ad-hoc; it is the
+intersection of the three standards-level priors applied
+to the MCP protocol surface.

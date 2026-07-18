@@ -1,0 +1,67 @@
+% preamble.sty — Phase-11 paper preamble
+% Mirrors the USENIX Security / IEEE S&P "conference" layout with
+% alphabetic BibLaTeX style as required by prompts/11_paper.md.
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{preamble}[2026/07/19 Phase-11 paper preamble]
+
+% Page geometry — USENIX letter, 1 inch margins.
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Fonts / encoding.
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% Math / tables / figures.
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\usepackage{pgfplotstable}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{xcolor}
+
+% Code / listings.
+\usepackage{listings}
+
+% Hyperref last; load with hidelinks for a clean look.
+\usepackage[hidelinks]{hyperref}
+
+% TikZ for inline DFD snippets (used sparingly; main DFD lives in
+% docs/diagrams/dfd_trust_boundaries.svg).
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes,fit,backgrounds}
+
+% PGFPlots for any inline numeric plots not already in figures/.
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+% Caption settings — captions above for tables, below for figures.
+\captionsetup[table]{position=above,labelfont=bf,skip=4pt}
+\captionsetup[figure]{position=below,labelfont=bf,skip=4pt}
+
+% Consistent macro for our project name.
+\newcommand{\project}{Cross-Tenant Isolation Validation in MCP Servers}
+\newcommand{\projectshort}{MCP-ISO}
+\newcommand{\mcp}{Model Context Protocol}
+\newcommand{\stride}{STRIDE}
+
+% Style for listings (used in §3 + §4 for inline YAML/JSON snippets).
+\lstdefinestyle{yamlstyle}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black},
+  stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black},
+  showstringspaces=false,
+  breaklines=true,
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{black!30},
+}
+\lstset{style=yamlstyle}
+
+\endinput

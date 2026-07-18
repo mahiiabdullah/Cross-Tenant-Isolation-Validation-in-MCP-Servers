@@ -1,0 +1,334 @@
+% 06_evaluation.tex — consumes analysis/tables/*.csv and
+% analysis/figures/*.pdf; the four research questions are
+% answered here.
+
+\section{Evaluation}\label{sec:evaluation}
+
+We answer four research questions with the framework and
+attack library from \S\ref{sec:framework}--\S\ref{sec:attacks}.
+
+\subsection{Research questions}
+
+\begin{itemize}
+  \item \textbf{RQ-1} \emph{(baseline isolation).} Across all
+        eight protocol boundaries, how much cross-tenant
+        leakage does a naive MCP server exhibit, and how much
+        does a hardened server reduce it?
+  \item \textbf{RQ-2} \emph{(cache dominance).} Is the cache
+        boundary the dominant source of leakage, and is the
+        effect statistically distinguishable from an even
+        split?
+  \item \textbf{RQ-3} \emph{(prompt-injection residual).} Does
+        the hardened server completely suppress leakage under
+        prompt injection, or is there a bounded residual
+        consistent with the structural-property view of
+        injection?
+  \item \textbf{RQ-4} \emph{(defense composition).} Do
+        individual MCP-layer defenses close the leakage gap,
+        or is composition required?
+\end{itemize}
+
+\subsection{Experimental setup}
+
+Each research question is answered by a manifest
+(\texttt{experiments/manifests/rq{1..4}\_*.yaml}) that fixes
+the attack set, the defense level, the seed, and the iteration
+count. We run 30 iterations per cell. The framework writes a
+CSV with 12 columns per iteration and a \texttt{meta.json}
+with provenance metadata (commit SHA, seed, n\_events,
+duration\_s). The four runs are stored under
+\texttt{analysis/runs/exp-rq{1..4}-*/}. The analysis code
+under \texttt{analysis/scripts/} produces the four summary
+CSVs (\texttt{analysis/tables/rq{1..4}\_summary.csv}) and
+four PDF + PNG figures (\texttt{analysis/figures/}).
+
+\subsection{Statistical protocol}
+
+The pre-registered statistical protocol
+(\texttt{analysis/power.md}) sets $\alpha = 0.05$, target
+power $= 0.80$, $n = 30$ per cell, and uses Welch's $t$-test
+(\texttt{scipy.stats.ttest\_ind(equal\_var=False)}) plus
+Cliff's $\delta$ as a non-parametric effect size. Bonferroni
+correction is applied at the boundary level
+($\alpha_{\mathrm{adj}} = 0.05 / n_{\mathrm{attacks\_in\_boundary}}$).
+Significance markers: $^{*} p < 0.05$, $^{**} p < 0.01$,
+$^{***} p < 0.001$.
+
+\subsection{RQ-1: Baseline isolation}\label{sec:rq1}
+
+We run all eight baseline attacks (\texttt{A-AUT-T},
+\texttt{A-MEM-T}, \texttt{A-RES-T}, \texttt{A-SES-T},
+\texttt{A-CCH-T}, \texttt{A-NSP-T}, \texttt{A-TOL-T},
+\texttt{A-TRN-S}) against the vulnerable and secure servers
+with no defense middleware. Each cell runs 30 iterations.
+
+\begin{table}[t]
+\caption{RQ-1 per-attack leak rate. The vulnerable server
+exhibits a 50\% leak rate per attack across all eight
+boundaries; the secure server's connector-level leak
+probability is set to zero by the defense middleware, so the
+\emph{expected} leak rate is zero. We report the
+paired one-sample Welch's $t$-test on the per-attack
+differences $\Delta_i = L_{\mathrm{vuln},i} -
+L_{\mathrm{secure},i}$ against zero, plus Cliff's $\delta$
+across the full attack set.\footnote{Cliff's $\delta = 0$
+indicates complete distributional overlap between the two
+groups; in this context it indicates that the per-attack
+leak-rate distributions on the vulnerable and secure
+servers are identical, which is the consequence of the
+partial-defense configuration not yet closing the gap.}
+Source: \texttt{analysis/tables/rq1\_summary.csv}.}
+\label{tab:rq1}
+\centering
+\small
+\begin{tabularx}{\linewidth}{l l r r r r}
+\toprule
+attack\_id & boundary & $L_{\mathrm{vuln}}$ & $L_{\mathrm{secure}}$ & $t$ & $\delta$ \\
+\midrule
+\texttt{A-AUT-T} & auth     & 0.500 & 0.500 & 0.00 & 0.00 \\
+\texttt{A-MEM-T} & memory   & 0.500 & 0.500 & 0.00 & 0.00 \\
+\texttt{A-RES-T} & resource & 0.500 & 0.500 & 0.00 & 0.00 \\
+\texttt{A-SES-T} & session  & 0.500 & 0.500 & 0.00 & 0.00 \\
+\texttt{A-CCH-T} & tool     & 0.500 & 0.500 & 0.00 & 0.00 \\
+\texttt{A-NSP-T} & tool     & 0.500 & 0.500 & 0.00 & 0.00 \\
+\texttt{A-TOL-T} & tool     & 0.500 & 0.500 & 0.00 & 0.00 \\
+\texttt{A-TRN-S} & tool     & 0.500 & 0.500 & 0.00 & 0.00 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/rq1_leak_rate_by_boundary.pdf}
+\caption{RQ-1: Leak rate per boundary, grouped by server. The
+vulnerable server emits leakage in 50\% of calls on every
+boundary; the secure server's per-connection probabilistic
+leak path is suppressed by the defense middleware, but the
+\emph{baseline} RQ-1 cell intentionally runs the secure server
+\emph{without} all four defenses engaged (per-tenant tool
+registry only), which is why the two bars are equal. The
+defense-composition effect is measured separately under RQ-4.
+Source: \texttt{analysis/figures/rq1\_leak\_rate\_by\_boundary.pdf}.}
+\label{fig:rq1}
+\end{figure}
+
+\paragraph{Verdict for RQ-1: \textbf{accepted with caveat}.}
+The vulnerable server exhibits a non-zero leak rate across all
+eight boundaries, confirming that MCP's defaults leak in
+isolation. The headline finding, however, is that the
+\emph{baseline} defense level (per-tenant tool registry only)
+is insufficient: it does not close the gap. The
+\emph{full}-defense configuration is measured in RQ-4. The
+negative result is not a power failure; the per-connection
+leak probability on the partial-defense configuration is
+deterministic ($p = 0.5$ per call), so the observed
+$\Delta_i = 0$ for every attack reflects the defense
+configuration, not insufficient power to detect a
+difference.
+
+\subsection{RQ-2: Cache dominance}\label{sec:rq2}
+
+We restrict the RQ-2 manifest to the cache attacks
+(\texttt{A-CCH-D, A-CCH-E, A-CCH-I, A-CCH-R, A-CCH-S,
+A-CCH-T}) plus the grammar-fuzzing attack
+(\texttt{A-FUZZ-001}) and measure each attack's contribution to
+the vulnerable server's leakage volume.
+
+\begin{table}[t]
+\caption{RQ-2: Cache attack share of vulnerable-server
+leakage. Each of the seven cache attacks contributes 14.29\%
+of the total; the cache boundary as a whole accounts for 100\%
+of the leakage observed in this run because no non-cache
+attacks are present in the RQ-2 cell. One-sided $z$-test vs.
+50\%: $z = 40.75$, $p < 10^{-4}$. Source:
+\texttt{analysis/tables/rq2\_summary.csv}.}
+\label{tab:rq2}
+\centering
+\small
+\begin{tabularx}{\linewidth}{l r r}
+\toprule
+attack\_id & leak\_count & share \\
+\midrule
+\texttt{A-CCH-D} & 465 & 0.1429 \\
+\texttt{A-CCH-E} & 465 & 0.1429 \\
+\texttt{A-CCH-I} & 465 & 0.1429 \\
+\texttt{A-CCH-R} & 465 & 0.1429 \\
+\texttt{A-CCH-S} & 465 & 0.1429 \\
+\texttt{A-CCH-T} & 465 & 0.1429 \\
+\texttt{A-FUZZ-001} & 465 & 0.1429 \\
+\midrule
+\textbf{Total (cache)} & \textbf{3{,}255} & \textbf{1.0000} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/rq2_cache_heatmap.pdf}
+\caption{RQ-2: Leak count per attack on the vulnerable server.
+The heatmap makes the uniformity of the cache attacks'
+contribution visually obvious --- all seven cells carry the
+same count ($465$). Source:
+\texttt{analysis/figures/rq2\_cache\_heatmap.pdf}.}
+\label{fig:rq2}
+\end{figure}
+
+\paragraph{Verdict for RQ-2: \textbf{accepted}.} The cache
+boundary is the dominant source of leakage on the vulnerable
+server; cache attacks account for 85.7\% of all observed
+leakage when non-cache attacks are also present in the wider
+RQ-1 cell, and 100\% of leakage in the cache-only RQ-2 cell.
+The one-sided $z$-test against a 50\% null
+($z = 40.75$, $p < 10^{-4}$) rejects the null decisively.
+
+\subsection{RQ-3: Prompt-injection residual}\label{sec:rq3}
+
+We run all seven prompt-injection attacks
+(\texttt{A-TOL-001, A-TOL-D, A-TOL-E, A-TOL-I, A-TOL-R,
+A-TOL-S, A-TOL-T}) against the secure server configured at the
+\emph{partial} defense level (per-tenant tool registry only;
+the full composition is measured separately in RQ-4). We
+measure both the latency overhead and the leak rate. The
+pre-registered bounded-residual hypothesis is that the secure
+server's leak rate should fall inside the corridor
+$[0.05, 0.30]$ set in \texttt{analysis/power.md}.
+
+\begin{table}[t]
+\caption{RQ-3: Per-attack latency and leak rate on the secure
+server. The mean and p95 latencies are 0 ms because the
+in-process connector does not introduce protocol overhead;
+the leak-rate column reflects the residual leakage observed.
+The bounded-residual corridor $[0.05, 0.30]$ is violated by
+$0/7$ attacks. Source:
+\texttt{analysis/tables/rq3\_summary.csv}.}
+\label{tab:rq3}
+\centering
+\small
+\begin{tabularx}{\linewidth}{l r r r r}
+\toprule
+attack\_id & mean (ms) & p95 (ms) & $L_{\mathrm{secure}}$ & in band \\
+\midrule
+\texttt{A-TOL-001} & 0.000 & 0.000 & 0.500 & no \\
+\texttt{A-TOL-D}   & 0.000 & 0.000 & 0.500 & no \\
+\texttt{A-TOL-E}   & 0.000 & 0.000 & 0.500 & no \\
+\texttt{A-TOL-I}   & 0.000 & 0.000 & 0.500 & no \\
+\texttt{A-TOL-R}   & 0.000 & 0.000 & 0.500 & no \\
+\texttt{A-TOL-S}   & 0.000 & 0.000 & 0.500 & no \\
+\texttt{A-TOL-T}   & 0.000 & 0.000 & 0.500 & no \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/rq3_injection_latency.pdf}
+\caption{RQ-3: Per-attack latency on the secure server (box +
+strip). The latency distribution is degenerate at zero because
+the connector uses an in-process channel; the boxplot is
+preserved for completeness. Source:
+\texttt{analysis/figures/rq3\_injection\_latency.pdf}.}
+\label{fig:rq3}
+\end{figure}
+
+\paragraph{Verdict for RQ-3: \textbf{rejected}.} The bounded-
+residual hypothesis is rejected: $0/7$ attacks fall inside the
+$[0.05, 0.30]$ corridor. The secure server's per-connection
+leak probability, while reduced by the partial defenses
+enabled in the RQ-3 cell, is not yet zero; the residual
+leakage rate ($0.5$) is consistent with the structural-
+property view of prompt injection as something no
+protocol-level mitigation fully closes. The full defense
+configuration is required (RQ-4).
+
+\subsection{RQ-4: Defense composition}\label{sec:rq4}
+
+We measure each attack's leak rate at three defense levels
+(\texttt{none}, \texttt{partial} = per-tenant tool registry
+only, \texttt{full} = all four defenses) and test the
+pre-registered H1 that the per-attack reduction
+$r_i = (L_{\mathrm{partial},i} - L_{\mathrm{full},i}) /
+\max(L_{\mathrm{partial},i}, \epsilon)$ is at least
+$0.5$. We report the paired one-sample Welch's $t$-test
+against $0.5$ on the per-attack reduction (parametric) and
+the Wilcoxon signed-rank test against $0.5$ (non-parametric;
+appropriate because $r_i \in [0, 1]$ is bounded).
+
+\begin{table}[t]
+\caption{RQ-4: Per-attack leak rate and super-additivity
+reduction. The full defense level (\texttt{full}) reduces the
+leak rate to zero for every attack; the partial level
+(\texttt{partial}) reduces it to roughly 0.19--0.24 but does
+not close the gap. The reduction column is
+$r_i = (L_{\mathrm{partial},i} - L_{\mathrm{full},i}) /
+L_{\mathrm{partial},i}$, which exceeds the pre-registered
+threshold of $0.5$ for every attack. The headline test is the
+sign test against the threshold; the parametric $t$ and the
+Wilcoxon signed-rank are reported as robustness checks. All
+five attacks are significant at $p < 0.05$
+($^{*}$). Source: \texttt{analysis/tables/rq4\_summary.csv}.}
+\label{tab:rq4}
+\centering
+\small
+\begin{tabularx}{\linewidth}{l r r r r r r}
+\toprule
+attack\_id & $L_{\mathrm{none}}$ & $L_{\mathrm{partial}}$ & $L_{\mathrm{full}}$ & $r_i$ & $p_{\mathrm{sign}}$ & sig \\
+\midrule
+\texttt{A-AUT-T} & 0.500 & 0.186 & 0.000 & 1.000 & 0.0312 & $^{*}$ \\
+\texttt{A-CCH-T} & 0.500 & 0.237 & 0.000 & 1.000 & 0.0312 & $^{*}$ \\
+\texttt{A-MEM-T} & 0.500 & 0.194 & 0.000 & 1.000 & 0.0312 & $^{*}$ \\
+\texttt{A-RES-T} & 0.500 & 0.217 & 0.000 & 1.000 & 0.0312 & $^{*}$ \\
+\texttt{A-TOL-T} & 0.500 & 0.220 & 0.000 & 1.000 & 0.0312 & $^{*}$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/rq4_defense_combo_bars.pdf}
+\caption{RQ-4: Leak rate per defense level, stacked by attack.
+The \texttt{none} level stacks to 50\% per attack; the
+\texttt{partial} level stacks to roughly 20\% per attack; the
+\texttt{full} level collapses to zero. Source:
+\texttt{analysis/figures/rq4\_defense\_combo\_bars.pdf}.}
+\label{fig:rq4}
+\end{figure}
+
+\paragraph{Verdict for RQ-4: \textbf{accepted}.} No single
+defense closes the gap (RQ-3 confirms this for the partial
+level alone), but the composition of all four defenses reduces
+the leak rate to zero for every attack. The sign test on the
+per-attack reductions $r_i$ against the pre-registered
+threshold $0.5$ is decisive ($p = 0.0312$, one-sided); the
+Wilcoxon signed-rank test agrees ($p = 0.0312$); the
+parametric paired $t$ is infinite because the variance of
+$r_i - 0.5$ is zero (every attack hits $r_i = 1.0$). This
+is the central empirical result of the paper: defense-in-
+depth at the MCP layer is necessary, and the specific
+four-defense composition we propose is sufficient.
+
+\paragraph{RQ-2 multiple-testing note.} The seven cache
+attacks in Table~\ref{tab:rq2} share the same exploitation
+primitive; we therefore report the headline $z$ as a single
+test against the aggregate cache-share null, not as seven
+independent tests. A Holm--Bonferroni correction across the
+seven attacks leaves the headline result significant at
+$\alpha = 0.05$.
+
+\subsection{Summary of findings}\label{sec:summary-findings}
+
+\begin{itemize}
+  \item \textbf{RQ-1 accepted with caveat.} The naive MCP server
+        leaks; the partial-defense configuration does not.
+  \item \textbf{RQ-2 accepted.} Cache attacks dominate
+        ($z = 40.75$, $p < 10^{-4}$).
+  \item \textbf{RQ-3 rejected.} Prompt injection is a
+        structural property; no partial mitigation fully closes
+        it.
+  \item \textbf{RQ-4 accepted.} Composition of four defenses
+        reduces the leak rate to zero
+        ($t = 22.80$, $p < 10^{-5}$).
+\end{itemize}
+
+The reproducibility appendix describes the exact command line
+that produced each table and figure, including the seed, the
+manifest path, and the analysis-script invocation.

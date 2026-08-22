@@ -1,0 +1,95 @@
+flowchart TB
+    %% =====================================================================
+    %%  Framework architecture -- Cross-Tenant Isolation Validation in MCP
+    %%  Strictly horizontal/vertical flows; four lanes (Tenants, Harness,
+    %%  Servers, Analysis) read top-to-bottom.
+    %% =====================================================================
+
+    %% Lane 1: Tenants (top row).
+    subgraph Lane1 ["Tenants — T = {t_1, t_2, t_3, t_4}"]
+        direction LR
+        t1["t_1<br/>(A_1, C_1)"]:::tenant
+        t2["t_2<br/>(A_2, C_2)"]:::tenant
+        t3["t_3<br/>(A_3, C_3)"]:::tenant
+        t4["t_4<br/>(A_4, C_4)"]:::tenant
+    end
+
+    %% Single horizontal bus that all tenants share.
+    Bus["Tenant bus"]:::pipe
+
+    %% Lane 2: Harness (left) + Servers (right).
+    subgraph Lane2 ["Harness and Servers"]
+        direction LR
+
+        subgraph Harness ["Harness"]
+            direction TB
+            Sched["Scheduler<br/>(attack queue)"]:::harness
+            PGen["PayloadGen<br/>(seed mutation)"]:::harness
+            Conn["Connector<br/>(stdio / HTTP+SSE)"]:::harness
+        end
+
+        %% Fork between Connector and the two servers.
+        Fork["Fork"]:::pipe
+
+        subgraph Servers ["Servers"]
+            direction TB
+            Sv["Vulnerable S_v<br/>(no defenses)"]:::vuln
+            Ss["Secure S_s<br/>(D1+D2+D3+D4)"]:::sec
+        end
+    end
+
+    %% Vertical bus that drops server events into the Evaluator.
+    SDrop["Server drop"]:::pipe
+
+    %% Lane 3: Analysis (bottom row).
+    subgraph Lane3 ["Analysis"]
+        direction LR
+        Eval["Evaluator<br/>(oracle)"]:::analysis
+        Log["Logger<br/>(JSONL)"]:::analysis
+        Met["Metrics<br/>(L, Δt, π)"]:::analysis
+        Rep["Reporter<br/>(Markdown / HTML)"]:::analysis
+    end
+
+    %% =====================================================================
+    %% Data plane
+    %% =====================================================================
+
+    %% 1.  Tenants -> bus.
+    t1 --> Bus
+    t2 --> Bus
+    t3 --> Bus
+    t4 --> Bus
+
+    %% 2.  Bus -> Scheduler.
+    Bus --> Sched
+
+    %% 3-5.  Scheduler -> PayloadGen -> Connector -> Fork.
+    Sched --> PGen
+    PGen --> Conn
+    Conn --> Fork
+
+    %% 6-7.  Fork -> {S_v, S_s}.
+    Fork --> Sv
+    Fork --> Ss
+
+    %% 8-9.  Servers -> server drop.
+    Sv --> SDrop
+    Ss --> SDrop
+
+    %% 10.  Server drop -> Evaluator.
+    SDrop --> Eval
+
+    %% 11-13. Evaluator -> Logger -> Metrics -> Reporter.
+    Eval --> Log
+    Log --> Met
+    Met --> Rep
+
+    %% =====================================================================
+    %% Styling
+    %% =====================================================================
+    classDef tenant   fill:#dde7f3,stroke:#3b5b85,stroke-width:2px,color:#1a1a1a;
+    classDef harness  fill:#e9e2f3,stroke:#5b3b85,stroke-width:2px,color:#1a1a1a;
+    classDef vuln     fill:#f3dcdc,stroke:#8b2b2b,stroke-width:2px,color:#1a1a1a;
+    classDef sec      fill:#dcebd6,stroke:#2b6b2b,stroke-width:2px,color:#1a1a1a;
+    classDef analysis fill:#fbe6cc,stroke:#8b5a1a,stroke-width:2px,color:#1a1a1a;
+    classDef pipe     fill:none,stroke:none,color:#888888,font-style:italic;

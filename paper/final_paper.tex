@@ -107,16 +107,20 @@ of 50 concrete attack classes spanning namespace collisions,
 state leakage, session hijacking, cache poisoning, and path
 traversal, with full pytest reproducibility. Fourth, we
 measure the leakage of the reference servers across four
-research questions, demonstrating that the naive server leaks
-on every attack (RQ-1), that cache attacks account for the
-dominant share of leakage (RQ-2), that prompt injection
-remains a residual risk under partial defenses
-(RQ-3), and that a four-defense composition reduces the leak
-rate to zero (RQ-4). All experiments use synthetic tenant
-data; no real user data, credentials, or LLM outputs are
-involved. We close with three concrete spec-change
-recommendations for MCP-2 that close the observed
-leakage without further changes to the protocol.
+research questions, observing that, under our reference
+vulnerable server, every attack in the suite triggers
+detectable cross-tenant leakage (RQ-1); that cache-layer
+attacks account for the largest share of the observed
+leakage events in the RQ-2 cell (RQ-2); that prompt-injection
+attacks are not mitigated by the per-tenant tool-registry
+defense alone (RQ-3); and that, under the full four-defense
+composition, no leakage was detected by our deterministic
+oracle within the tested attack suite (RQ-4). All experiments
+use synthetic tenant data; no real user data, credentials,
+or LLM outputs are involved. We close with three
+recommendations we believe should be considered for the
+next revision of the Model Context Protocol
+specification.
 \end{abstract}
 
 \begin{CCSXML}
@@ -210,9 +214,9 @@ contributions:
         measure four defense configurations (none,
         per-tenant tool registry, tenant-prefixed cache
         keys, resource-path canonicalisation,
-        audience-bound JWTs) and show that the
-        four-defense composition reduces the leak rate to
-        zero across all measured attacks.
+        audience-bound JWTs) and observe that, under the
+        full composition, no leakage is detected by our
+        deterministic oracle within the tested attack suite.
 \end{enumerate}
 
 We organise the remainder of the paper as follows.
@@ -224,8 +228,9 @@ presents the attack taxonomy. \Cref{sec:evaluation} reports
 the experimental results. \Cref{sec:defenses} details the
 defense composition and its measured overhead.
 \Cref{sec:related} surveys related work.
-\Cref{sec:conclusion} concludes with three spec-change
-recommendations for MCP-2.
+\Cref{sec:discussion} enumerates the limitations of the
+study. \Cref{sec:conclusion} concludes with three
+spec-change recommendations for MCP-2.
 
 % ============================================================================
 %  2. Background & Motivation
@@ -774,30 +779,48 @@ data, credentials, or LLM outputs are involved.
 
 We pre-register the statistical protocol in
 \texttt{analysis/power.md}: $\alpha = 0.05$, power $= 0.80$,
-Welch's $t$ for paired comparisons, Cliff's $\delta$ for
-effect size, and Bonferroni correction within boundary
-($\alpha_{\text{adj}} = 0.05 / 6 \approx 0.0083$). For
-RQ-2 we use a continuity-corrected one-sided $z$-test
-for proportions (see \cref{sec:threat}). For RQ-4 we use a
-one-sample sign test against the pre-registered threshold
-$0.5$ (the headline threshold for ``full defense reduces
-leak rate by $\geq 50\%$ relative to partial''), with
-Wilcoxon signed-rank and paired Welch's $t$ as robustness
-checks.
+a paired one-sample $t$-test on the per-attack differences
+$\Delta_i$ as the primary test (RQ-1, RQ-4), Cliff's
+$\delta$ for effect size, and Bonferroni correction within
+boundary ($\alpha_{\text{adj}} = 0.05 / 6 \approx 0.0083$).
+Welch's $t$ is reported alongside as a robustness check; it
+is designed for two independent samples and is degenerate
+on per-iteration differences whose variance collapses to
+zero (which is exactly what happens under the
+full-defense cell of RQ-4). For RQ-2 we use a
+continuity-corrected one-sided $z$-test for proportions
+(see \cref{sec:threat}). For RQ-4 we use a one-sample sign
+test against the pre-registered threshold $0.5$ (the
+headline threshold for ``full defense reduces leak rate
+by $\geq 50\%$ relative to partial''), with Wilcoxon
+signed-rank and paired Welch's $t$ as robustness checks.
 
 \subsection{RQ-1: Baseline isolation}
 
 \Cref{tab:rq1} reports the per-attack leakage rate on the
-vulnerable and secure servers for one attack per boundary.
-The vulnerable-server rate is $L_{\text{vuln}} = 1.000$ on
-every attack; a fully unprotected deployment suffers absolute
-leakage. The secure-server rate is bounded at $L_{\text{secure}}
-= 1.000$ for attacks outside the namespace boundary when evaluated
-at the partial-defense configuration (which only provides a per-tenant 
-tool registry). The paired one-sample $t$-test on the
+reference vulnerable and secure servers for one attack per
+boundary. Under our reference vulnerable server the
+rate is $L_{\text{vuln}} = 1.000$ on every attack in this
+single-attack cell; a fully unprotected deployment would
+therefore be expected to suffer absolute leakage if the
+oracle and attack patterns generalise. The partial-defense
+configuration evaluated here deploys only the per-tenant
+tool registry (D1); consequently $L_{\text{secure}} =
+1.000$ holds for attacks outside the namespace boundary,
+and $L_{\text{secure}} = 0.000$ holds only for the
+namespace-boundary attack (A-NSPC-T) that D1 alone fully
+covers. These single-cell numbers should therefore be read
+as evidence that a single partial defense is insufficient
+for systemic isolation, not as a claim about production
+MCP servers at large. The paired one-sample $t$-test on the
 per-attack differences $\Delta_i = L_{\text{vuln},i} -
-L_{\text{secure},i}$ validates that a single partial defense 
-is insufficient to achieve systemic isolation.
+L_{\text{secure},i}$ is degenerate on these single-row
+per-attack values, so the headline interpretation rests on
+the qualitative contrast rather than on a $p$-value.\footnote{
+Replication at the per-iteration level is a follow-up
+listed in \cref{sec:discussion}: the underlying
+\texttt{analysis/runs/} directory retains the per-iteration
+records needed for an $n > 1$ re-analysis.}
 
 \begin{table}[t]
 \caption{RQ-1 results. $L_{\text{vuln}}$ is the baseline
@@ -828,20 +851,27 @@ A-TRN-S & transport  & 1.000 & 1.000 & 0.00 & 1.0 & 0.00 \\
 \subsection{RQ-2: Cache dominance}
 
 \Cref{tab:rq2} reports the per-attack leakage counts on
-the vulnerable server for the seven cache attacks. All
-seven attacks contribute $465$ leaks each, for a total of
-$3{,}255$ leaks that account for the full set of
-vulnerable-server leakage in the RQ-2 cell. The
+the vulnerable server for the seven attacks selected for
+the cache-dominance cell. Within this cell, all seven
+attacks contribute $465$ leaks each, for a total of
+$3{,}255$ leakage events. The
 continuity-corrected one-sided $z$-test against the null
 $p_0 = 0.5$ yields $z = 40.73$, $p \approx 0$.\footnote{
-Because the seven cache attacks share the same
-exploitation primitive, the per-attack p-values are not
-independent; we report the headline $z$ as a single test
-against the aggregate cache-share null. A
+Because the seven attacks selected for this cell share
+the same exploitation primitive, the per-attack p-values
+are not independent; we report the headline $z$ as a
+single test against the aggregate share null. A
 Holm--Bonferroni correction across the seven attacks
 leaves the headline result significant at $\alpha =
-0.05$.} The verdict is \emph{accepted}: cache attacks
-dominate the leakage budget.
+0.05$.} The verdict is that cache-layer attacks are the
+largest single contributor within the RQ-2 cell; the
+finding should not be read as a statement that cache
+attacks dominate in absolute terms across the full attack
+suite, which is dominated by other boundary cells (see
+\cref{tab:rq1}).\footnote{See also \cref{sec:discussion}
+(``Workload dependence'') for the caveat that this is
+the contribution under a uniform-iteration workload, not a
+production-frequency-weighted one.}
 
 \begin{table}[t]
 \caption{RQ-2 results. Each cache attack contributes
@@ -875,14 +905,22 @@ Total       &       & 3{,}255 & 1.0000 \\
 leak rate for each prompt-injection attack on the secure
 server at the partial-defense configuration. The
 leak rate is $L_{\text{secure}} = 1.000$ for every
-attack. The pre-registered bounded-residual corridor is
-$[0.05, 0.30]$; zero of seven attacks fall inside the
-corridor. The verdict is \emph{rejected}: prompt
-injection is a residual property at the partial-defense
-configuration.\footnote{The RQ-3 cell runs the secure
-server at the \texttt{partial} defense level
+attack in the RQ-3 cell.\footnote{The RQ-3 cell runs the
+secure server at the \texttt{partial} defense level
 (per-tenant tool registry only); the \texttt{full}
-configuration is measured in RQ-4.}
+configuration is measured in RQ-4.} The pre-registered
+bounded-residual corridor is $[0.05, 0.30]$; zero of seven
+attacks fall inside the corridor. The result is therefore
+that the per-tenant tool-registry defense alone (D1) does
+not mitigate the prompt-injection attacks tested here. This
+is a statement about D1's coverage of the tested
+prompt-injection attack suite, not a claim that prompt
+injection is intrinsically an unmitigatable residual
+property of the Model Context Protocol.\footnote{See
+\cref{sec:discussion} for the broader question of whether
+prompt-injection resistance requires a different
+defense family (capability-based tools, separate
+sanitisers) outside the four-defenses set evaluated here.}
 
 \begin{table}[t]
 \caption{RQ-3 results. $L_{\text{secure}}$ is the
@@ -921,9 +959,17 @@ sign test against the pre-registered threshold $0.5$,
 which yields $p_{\text{sign}} = 0.0312$; Wilcoxon
 signed-rank yields $p_{\text{Wilcoxon}} = 0.0312$; paired
 Welch's $t$ is degenerate because every $r_i$ hits the
-$L_{\text{full}} = 0$ floor (variance zero). The verdict
-is \emph{accepted}: the four-defense composition reduces
-the leak rate to zero across all measured attacks.
+$L_{\text{full}} = 0$ floor (variance zero). Within the
+tested attack suite and under our deterministic oracle, the
+four-defense composition reduces the observed leakage rate
+from the partial-defense baseline to zero, and the sign
+test against the $50\%$ reduction threshold rejects the
+null. As discussed in \cref{sec:discussion} (``Deterministic
+oracle''), ``zero detected leakage'' does not imply
+``zero actual leakage'': an oracle that does not match the
+attacker's exfiltration payload can produce false
+negatives, and a future oracle-validation experiment
+remains as future work.
 
 \begin{table}[t]
 \caption{RQ-4 results. $L_{\text{none}}$ is the baseline
@@ -957,15 +1003,24 @@ A-TOL-T & 1.000 & 1.000 & 0.000 & 1.000 & --- \\
 
 \subsection{Summary}
 
-The four research questions yield a coherent picture:
+Taken together, the four cells paint the following
+\emph{under the evaluated reference vulnerable server, with
+the deterministic oracle, within the tested attack suite}:
 \begin{itemize}
-  \item The naive server leaks unconditionally on every attack (RQ-1).
-  \item Cache attacks account for the dominant share of
-        leakage (RQ-2; $z = 40.73$, $p \approx 0$).
-  \item Prompt injection is a residual property at the
-        partial-defense configuration (RQ-3).
-  \item The four-defense composition reduces the leak
-        rate to zero (RQ-4; sign test $p = 0.0312$).
+  \item On every attack in the RQ-1 suite the oracle detects
+        leakage on the reference vulnerable server
+        (RQ-1).\footnote{See \cref{sec:discussion}
+        (``Reference implementation'') for the scope
+        limitation.}
+  \item Cache-layer attacks are the largest single
+        contributor to the RQ-2 cell's observed leakage
+        (RQ-2; $z = 40.73$, $p \approx 0$).
+  \item The per-tenant tool-registry defense (D1) alone does
+        not mitigate the prompt-injection attacks in the
+        RQ-3 suite (RQ-3).
+  \item Under the four-defense composition, no leakage is
+        detected by the deterministic oracle within the
+        tested attack suite (RQ-4; sign test $p = 0.0312$).
 \end{itemize}
 
 % ============================================================================
@@ -973,9 +1028,11 @@ The four research questions yield a coherent picture:
 % ============================================================================
 \section{Proposed Defenses}\label{sec:defenses}
 
-We close the observed leak in RQ-1 through RQ-4 with four
-defenses, each implemented as a single middleware line in
-any MCP SDK.
+We propose four defenses that, in our reference
+implementation, can each be implemented as a lightweight
+middleware component. Whether the same holds in arbitrary
+third-party MCP SDKs is an empirical question outside the
+scope of this study.
 
 \subsection{Defense composition}
 
@@ -1122,6 +1179,107 @@ are direct applications of standard capability-based
 isolation principles.
 
 % ============================================================================
+%  8. Discussion and Limitations
+% ============================================================================
+\section{Discussion and Limitations}\label{sec:discussion}
+
+\subsection{Discussion}
+
+Taken together, the four RQ cells are best read as a
+\emph{coverage matrix} rather than as a verdict on the
+Model Context Protocol. Our eight-boundary STRIDE catalogue
+(\Cref{sec:threat-model}) maps attacks onto the boundaries
+they cross; the four RQs sample that map at four different
+defense configurations. The mapping is not symmetric: the
+five attack categories in \Cref{sec:attack-library} do not
+correspond one-to-one to the eight boundaries because some
+attacks span multiple boundaries (e.g., the prompt-injection
+attacks cross both the Transport and the Tool-Execution
+boundaries). When extending this study to additional attack
+families or additional defenses, the coverage matrix should
+be regenerated rather than assumed from this paper.
+
+\subsection{Limitations}
+
+We enumerate the limitations of this study so that the
+findings are not over-extrapolated. Each limitation is a
+candidate threat to external validity.
+
+\begin{enumerate}
+\item \textbf{Synthetic environment.}
+All experiments run inside a single-process Python harness
+against an in-memory reference vulnerable server and a
+reference secure server. No production MCP SDK, no
+container, no cloud tenancy model, and no real network
+topology is exercised. Findings describe behaviour of the
+reference implementations, not of arbitrary deployments.
+\item \textbf{Reference implementations.}
+Our vulnerable and secure servers are reference
+implementations we authored and committed alongside the
+attack library. They are intended to be representative
+rather than authoritative; a third-party MCP SDK may
+exhibit different default behaviour or expose different
+configuration surfaces.
+\item \textbf{Deterministic oracle.}
+The leakage oracle is a deterministic, seeded-marker
+comparator. It detects a leak if and only if a seeded
+marker from tenant~$A$ appears unmodified in tenant~$B$'s
+response. It cannot detect semantically equivalent leaks
+that strip or re-encode markers, and it cannot detect leaks
+that occur via a side channel (timing, cache-line access
+pattern) that the comparator does not instrument.
+``Zero detected leakage'' therefore does not imply
+``zero actual leakage.''
+\item \textbf{Limited attack coverage.}
+The attack library contains 50 attacks across five
+categories. The categories were chosen to cover the eight
+boundaries in our STRIDE catalogue, but the coverage is
+\emph{representative}, not \emph{exhaustive}. Real
+attackers are not restricted to the attacks we catalogue,
+and our defenses have not been tested against
+adversarial defense-bypass attempts.
+\item \textbf{Workload dependence.}
+RQ-2 measures leakage under a uniform-iteration workload.
+Production workloads have non-uniform per-attack
+frequencies; the per-attack contribution to leakage in
+production may differ from the contribution reported here.
+\item \textbf{No real LLM behaviour.}
+The harness uses scripted tool outputs rather than a live
+language model. Findings describe isolation behaviour of
+the protocol layer, not of the model layer. Prompt-injection
+findings should be re-evaluated under a live model before
+being treated as definitive.
+\item \textbf{No distributed deployment.}
+The experiments assume a single host and a single process
+boundary. Distributed deployments (multiple MCP servers
+behind a load balancer, federated identity, cross-region
+replication) introduce additional boundary surfaces that
+this study does not exercise.
+\item \textbf{No adversarial defense bypass.}
+The defenses (D1--D4) are evaluated against the attacks
+in our library, not against an adaptive adversary that
+sees the defense and searches for bypasses. A defense
+that reduces detected leakage to zero against a fixed
+attack suite may not reduce leakage to zero against an
+adversarial adversary.
+\end{enumerate}
+
+\subsection{Future work}
+
+The most consequential follow-up is an empirical validation
+of the deterministic oracle: a study that measures the
+oracle's precision, recall, false-positive rate, and
+false-negative rate against a held-out set of seeded and
+un-seeded traces, in order to convert ``zero detected
+leakage'' from a statement about our reference comparator
+into a calibrated statement about leakage rates. Additional
+follow-ups include: per-iteration replication to enable
+non-degenerate variance estimation; extended boundary
+coverage (Auth, Transport beyond JWT, Federated identity);
+and an adversarial evaluation of the D1--D4 defenses under
+a defender-aware attacker model.
+
+% ============================================================================
 %  9. Conclusion
 % ============================================================================
 \section{Conclusion}\label{sec:conclusion}
@@ -1135,23 +1293,36 @@ deterministic oracle; (iii)~an open attack library of 50
 concrete attack classes with pytest reproducibility; and
 (iv)~an MCP-layer defense-comparison study.
 
-The empirical findings are unambiguous. The naive MCP
-server leaks unconditionally across boundaries (RQ-1). Cache
-attacks account for the dominant share of leakage (RQ-2;
-$z = 40.73$, $p \approx 0$). Prompt injection is a
-residual property at the partial-defense configuration
-(RQ-3). The four-defense composition reduces the leak
-rate to zero (RQ-4; sign test $p = 0.0312$). 
+Within the scope of this study---our reference vulnerable
+server, our reference secure server, the deterministic
+oracle, the 50-attack suite, and four bounded defense
+configurations---the four cells together suggest that
+protocol-layer cross-tenant leakage is a measurable,
+reproducible, and partially mitigable property, with the
+following observations: under our reference vulnerable
+server, every attack in the RQ-1 suite triggers detectable
+cross-tenant leakage (RQ-1); cache-layer attacks are the
+largest single contributor to the RQ-2 cell (RQ-2;
+$z = 40.73$, $p \approx 0$); the per-tenant tool-registry
+defense (D1) alone does not mitigate the prompt-injection
+attacks in the RQ-3 suite (RQ-3); and, under the full
+four-defense composition, no leakage is detected by our
+oracle within the tested attack suite (RQ-4; sign test
+$p = 0.0312$).
 
-We close with three concrete recommendations for the
-next revision of the Model Context Protocol
-specification: audience-bound JWTs as the default,
-tenant-prefixed cache keys as the default, and URI
-canonicalisation as the default. Each is implementable
-as a single middleware line in any MCP SDK and adds
-$\sim 200$--$300\,\mu s$ per call. We estimate that
-adopting all three would close the observed leak without
-further changes to the specification.
+As recommendations we suggest that future revisions of the
+Model Context Protocol specification consider the
+following three changes: audience-bound JWTs as the default
+authentication claim; tenant-prefixed cache keys as the
+default caching primitive; and URI canonicalisation as the
+default resource addressing scheme. In our reference
+implementation each of these is implementable as a
+lightweight middleware component and adds roughly
+$200$--$300\,\mu s$ per call. Whether adopting these three
+defaults would close the observed leakage under a
+production-scale deployment, attacker adaptation, and an
+oracle that does not assume seeded markers is an open
+empirical question.
 
 \paragraph{Responsible Disclosure.}
 Following coordinated vulnerability disclosure practices, we 

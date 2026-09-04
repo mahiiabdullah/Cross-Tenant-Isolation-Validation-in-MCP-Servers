@@ -171,4 +171,4 @@ the committed manifests alone.
 ## License
 
 Released under the [MIT License](LICENSE). See [`paper/appendix_a_data_traceability.md`](paper/appendix_a_data_traceability.md)
-for the data-traceability statement required for artifact evaluation.
+for the data-traceability statement required for artifact evaluation...
